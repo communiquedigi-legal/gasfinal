@@ -462,6 +462,17 @@ function cleanAppointmentForPostgres(apt: any) {
 
 function mapAppointmentFromPostgres(apt: any) {
   if (!apt) return apt;
+  const isIdMatch = (id1: any, id2: any) => {
+    if (!id1 || !id2) return false;
+    const s1 = String(id1).trim().toLowerCase();
+    const s2 = String(id2).trim().toLowerCase();
+    if (s1 === s2) return true;
+    try {
+      return toDeterministicUuid(s1).toLowerCase() === toDeterministicUuid(s2).toLowerCase();
+    } catch {
+      return false;
+    }
+  };
   const mapped = { ...apt };
   let type = 'OPD';
   let urgency = apt.urgency || 'Routine';
@@ -548,7 +559,7 @@ function mapAppointmentFromPostgres(apt: any) {
   const docId = mapped.doctor_id || mapped.doctorId;
   if (docId) {
     const usersList = storage.get(STORAGE_KEYS.USERS, MOCK_USERS);
-    const doc = usersList.find((u: any) => u.id === docId);
+    const doc = usersList.find((u: any) => isIdMatch(u.id, docId) || u.name === mapped.doctor || u.name === mapped.doctorName);
     if (doc) {
       mapped.doctor = doc.name;
       mapped.doctorName = doc.name;
@@ -569,18 +580,6 @@ function mapAppointmentFromPostgres(apt: any) {
   const patientsList = storage.get(STORAGE_KEYS.PATIENTS, MOCK_PATIENTS) || [];
   const pid = mapped.patient_id || mapped.patientId;
   
-  const isIdMatch = (id1: any, id2: any) => {
-    if (!id1 || !id2) return false;
-    const s1 = String(id1).trim().toLowerCase();
-    const s2 = String(id2).trim().toLowerCase();
-    if (s1 === s2) return true;
-    try {
-      return toDeterministicUuid(s1).toLowerCase() === toDeterministicUuid(s2).toLowerCase();
-    } catch {
-      return false;
-    }
-  };
-
   const p = patientsList.find((p_item: any) => isIdMatch(p_item.id, pid) || p_item.mrn === pid);
 
   if (!mapped.patients) {

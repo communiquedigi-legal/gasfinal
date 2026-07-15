@@ -339,14 +339,7 @@ export default function OPD() {
       return String(a.id || '').localeCompare(String(b.id || ''));
     });
 
-    // 1. Calculate global sequential appointment numbers
-    sortedApts.forEach((apt, idx) => {
-      if (apt && apt.id) {
-        seqMap[apt.id] = idx + 1;
-      }
-    });
-
-    // 2. Calculate daily sequential token numbers (grouped by date)
+    // 1. Group by date to determine daily sequences
     const dateGroups: Record<string, any[]> = {};
     sortedApts.forEach(apt => {
       if (apt) {
@@ -358,10 +351,13 @@ export default function OPD() {
       }
     });
 
+    // 2. Assign identical daily sequence index to both seqMap and tokenMap
     Object.keys(dateGroups).forEach(d => {
       dateGroups[d].forEach((apt, idx) => {
         if (apt && apt.id) {
-          tokenMap[apt.id] = idx + 1;
+          const sequenceNum = idx + 1;
+          tokenMap[apt.id] = sequenceNum;
+          seqMap[apt.id] = sequenceNum;
         }
       });
     });
@@ -449,9 +445,13 @@ export default function OPD() {
           .filter((apt: any) => !apt.type || apt.type === 'OPD')
           .map((apt: any) => {
             const docId = apt.doctor_id || apt.doctorId;
-            const doc = docId ? staffList.find((u: any) => u.id === docId) : null;
+            const doc = docId ? staffList.find((u: any) => isPatientIdMatch(u.id, docId) || (u.name && (u.name === apt.doctor || u.name === apt.doctorName))) : null;
             const pId = apt.patient_id || apt.patientId;
-            const matchedPatient = patientsData ? patientsData.find((p: any) => isPatientIdMatch(p.id, pId)) : null;
+            const matchedPatient = patientsData ? patientsData.find((p: any) => 
+              isPatientIdMatch(p.id, pId) || 
+              (p.mrn && (p.mrn === apt.patientMrn || p.mrn === apt.patient_mrn || p.mrn === apt.patient_id || p.mrn === apt.patientId)) ||
+              (p.name && (p.name.toLowerCase().trim() === (apt.patientName || '').toLowerCase().trim() || p.name.toLowerCase().trim() === (apt.patient_name || '').toLowerCase().trim()))
+            ) : null;
             const rawPatName = apt.patientName || apt.patient_name || apt.patients?.name || matchedPatient?.name || 'Unknown';
             const lowerRaw = rawPatName.toLowerCase().trim();
             const isPlaceholder = lowerRaw === 'walk-in patient' || lowerRaw === 'walk-in' || lowerRaw === 'unknown' || lowerRaw === '';
@@ -695,7 +695,10 @@ export default function OPD() {
     
     // 1. Look for active appointment for this patient (not cancelled status)
     const patientApts = appointments.filter((apt: any) => 
-      apt.patientId === patient.id && 
+      (isPatientIdMatch(apt.patientId, patient.id) || 
+       isPatientIdMatch(apt.patient_id, patient.id) ||
+       (patient.mrn && patient.mrn === apt.patientMrn) ||
+       (patient.name && patient.name.toLowerCase().trim() === (apt.patientName || '').toLowerCase().trim())) && 
       apt.status !== 'Cancelled'
     );
     
@@ -2243,12 +2246,18 @@ export default function OPD() {
       })
       .sort((a, b) => new Date(b.date || b.prescription_date || 0).getTime() - new Date(a.date || a.prescription_date || 0).getTime());
 
-    if (patientPrescriptions.length === 0) {
-      toast.error('No prescription record found for this patient');
-      return;
+    let latestRx = patientPrescriptions[0];
+    if (!latestRx) {
+      latestRx = {
+        date: getLocalDateString(),
+        medicines: [],
+        advice: '',
+        doctor: doctorNameFallback || 'Attending Doctor',
+        vitals: undefined
+      };
+      toast.info('No existing prescription found; printing empty prescription pad for patient.');
     }
 
-    const latestRx = patientPrescriptions[0];
     const docObj = users.find(u => u.name === (latestRx.doctor || latestRx.doctor_name || doctorNameFallback));
     const latestVitals = selectedPatientVitals && selectedPatientVitals.length > 0 ? selectedPatientVitals[0] : undefined;
 
@@ -2262,7 +2271,7 @@ export default function OPD() {
         fatherName: patient.fatherName || patient.father_name || ''
       },
       {
-        date: latestRx.date || latestRx.prescription_date,
+        date: latestRx.date || latestRx.prescription_date || getLocalDateString(),
         medicines: latestRx.medicines || latestRx.medications || [],
         advice: latestRx.advice || latestRx.notes || '',
         vitals: latestRx.vitals || (latestVitals ? {
@@ -3236,7 +3245,7 @@ export default function OPD() {
                 </div>
               </>
             )}
-            <Button variant="outline" size="icon">
+            <Button variant="outline" size="icon" onClick={() => toast.info('Filtering options are active on the side controls.')}>
               <Filter className="w-4 h-4" />
             </Button>
           </div>
@@ -3436,7 +3445,7 @@ export default function OPD() {
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           )}
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toast.info(`Patient Profile: ${patient.name} (${patient.mrn})`)}>
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </div>
@@ -3515,9 +3524,22 @@ export default function OPD() {
                              (apt.doctor || apt.doctorName || '').toLowerCase().includes(query);
                     })
                     .sort((a, b) => {
-                      const timeA = getAppointmentTimestamp(a.appointment_date || a.date, a.appointment_time || a.time);
-                      const timeB = getAppointmentTimestamp(b.appointment_date || b.date, b.appointment_time || b.time);
-                      return timeA - timeB;
+                      const dateA = a.appointment_date || a.date || '';
+                      const dateB = b.appointment_date || b.date || '';
+                      if (dateA !== dateB) return dateA.localeCompare(dateB);
+
+                      const timeA = a.appointment_time || a.time || '';
+                      const timeB = b.appointment_time || b.time || '';
+                      
+                      const tA = getAppointmentTimestamp(dateA, timeA);
+                      const tB = getAppointmentTimestamp(dateB, timeB);
+                      if (tA !== tB) return tA - tB;
+
+                      const createdA = new Date(a.created_at || 0).getTime();
+                      const createdB = new Date(b.created_at || 0).getTime();
+                      if (createdA !== createdB) return createdA - createdB;
+
+                      return String(a.id || '').localeCompare(String(b.id || ''));
                     })
                     .slice((appointmentsPage - 1) * itemsPerPage, appointmentsPage * itemsPerPage)
                     .map((apt, i) => (
@@ -3653,7 +3675,12 @@ export default function OPD() {
                               className="h-8 w-8 text-amber-600 hover:bg-amber-50" 
                               title="Patient Clinical History"
                               onClick={() => {
-                                const patient = patients.find(p => isPatientIdMatch(p.id, apt.patientId));
+                                const patient = patients.find(p => 
+                                  isPatientIdMatch(p.id, apt.patientId) || 
+                                  isPatientIdMatch(p.id, apt.patient_id) ||
+                                  (p.mrn && p.mrn === apt.patientMrn) ||
+                                  (p.name && p.name.toLowerCase().trim() === (apt.patientName || '').toLowerCase().trim())
+                                );
                                 if (patient) {
                                   setSelectedPatient(patient);
                                   loadPatientHistory(patient.id);
@@ -3673,10 +3700,13 @@ export default function OPD() {
                               className="h-8 w-8 text-emerald-600 hover:bg-emerald-50" 
                               title="Print Latest Prescription"
                               onClick={() => {
-                                const patient = patients.find(p => isPatientIdMatch(p.id, apt.patientId)) || 
-                                                patients.find(p => p.name === apt.patientName) ||
-                                                patients.find(p => p.mrn === apt.patientMrn) || {
-                                                  id: apt.patientId || `temp-${Math.random().toString(36).substring(2, 11)}`,
+                                const patient = patients.find(p => 
+                                                  isPatientIdMatch(p.id, apt.patientId) || 
+                                                  isPatientIdMatch(p.id, apt.patient_id) ||
+                                                  (p.mrn && p.mrn === apt.patientMrn) ||
+                                                  (p.name && p.name.toLowerCase().trim() === (apt.patientName || '').toLowerCase().trim())
+                                                ) || {
+                                                  id: apt.patientId || apt.patient_id || `temp-${Math.random().toString(36).substring(2, 11)}`,
                                                   name: apt.patientName || 'Unknown Patient',
                                                   mrn: apt.patientMrn || 'N/A',
                                                   age: apt.age || apt.patientAge || '30',
@@ -3702,7 +3732,7 @@ export default function OPD() {
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           )}
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toast.info(`Appointment ID: ${apt.id} for ${apt.patientName}`)}>
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </div>
