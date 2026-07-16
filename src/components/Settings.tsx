@@ -2287,7 +2287,7 @@ export default function Settings({ currentUser, onUserUpdate, onHospitalUpdate }
                             body { margin: 0; padding: 0; }
                           </style>
                         </head>
-                        <body onload="window.print(); window.close();">
+                        <body onload="window.print();" onafterprint="window.close();">
                           <img src="${templateImage}" style="width: 100%; height: auto;" />
                         </body>
                       </html>

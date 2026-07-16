@@ -756,7 +756,7 @@ export function generatePharmacyInvoiceHtml(
                   <td colspan="6" class="text-right" style="padding-right: 10px;">Total Qty:</td>
                   <td class="text-center">${hydratedItems.reduce((sum, item) => sum + item.quantity, 0)}</td>
                   <td colspan="3" class="text-right">Total Payable Price:</td>
-                  <td class="text-right">₹${calculatedSubtotal.toFixed(2)}</td>
+                  <td class="text-right">₹${grandTotal.toFixed(2)}</td>
                 </tr>
               </tbody>
             </table>
@@ -856,7 +856,9 @@ export function generatePharmacyInvoiceHtml(
         <script>
           window.onload = () => {
             window.print();
-            setTimeout(() => { window.close(); }, 800);
+          }
+          window.onafterprint = () => {
+            window.close();
           }
         </script>
       </body>

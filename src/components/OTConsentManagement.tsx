@@ -251,7 +251,8 @@ export default function OTConsentManagement() {
             <p>This is an archived, legally-binding clinical consent form. Digitally locked at ${dateFormatted}.</p>
           </div>
           <script>
-            window.onload = function() { window.print(); window.close(); }
+            window.onload = function() { window.print(); }
+            window.onafterprint = function() { window.close(); }
           </script>
         </body>
       </html>

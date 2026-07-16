@@ -267,6 +267,32 @@ export default function Pharmacy() {
     printWindow.document.close();
   };
 
+  const downloadPharmacyInvoice = (bill: any) => {
+    const patient = patients.find(p => p.id === bill.patient_id);
+    const patientDetails = {
+      name: bill.patientName || bill.patient_name || patient?.name || 'Walk-in Customer',
+      phone: bill.patientPhone || bill.patient_phone || patient?.phone || 'N/A',
+      address: patient?.address || 'N/A',
+      gstin: patient?.gst_no || 'N/A'
+    };
+
+    const invoiceHtml = generatePharmacyInvoiceHtml(bill, inventory, patientDetails, pharmacySettings);
+    
+    // Create blob and download as HTML file
+    const blob = new Blob([invoiceHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const invNo = bill.invoiceNo || bill.invoice_no || bill.id;
+    link.download = `Pharmacy_Invoice_${invNo}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    toast.success(`Pharmacy Invoice ${invNo} downloaded as HTML! (Open it to Print/Save as PDF)`);
+  };
+
   const handleExportInventory = () => {
     const headers = ['Name', 'Category', 'Stock', 'Unit', 'Min Level', 'Expiry Date'];
     const rows = inventory.map((item: any) => [
@@ -1150,7 +1176,7 @@ export default function Pharmacy() {
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => printPharmacyInvoice(bill)}>
                                 <Printer className="w-4 h-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toast.success('Downloading invoice...')}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => downloadPharmacyInvoice(bill)} title="Download Invoice">
                                 <Download className="w-4 h-4" />
                               </Button>
                             </div>
