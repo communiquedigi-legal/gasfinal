@@ -767,9 +767,12 @@ export default function Dashboard() {
       const paymentRatio = billPaid / billTotal;
 
       if (items.length > 0) {
+        const itemsTotal = items.reduce((sum: number, item: any) => sum + Number(item.total_price ?? item.amount ?? 0), 0) || 1;
+        const itemScaleRatio = billPaid / itemsTotal;
+
         items.forEach((item: any) => {
           const cat = (item.category || '').toUpperCase();
-          const price = Number(item.total_price ?? item.amount ?? 0) * paymentRatio;
+          const price = Number(item.total_price ?? item.amount ?? 0) * itemScaleRatio;
 
           if (cat === 'PHARMACY') {
             pharmacyCollected += price;
