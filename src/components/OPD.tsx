@@ -218,11 +218,11 @@ export default function OPD() {
     }
   };
   const [isTokenSuccessOpen, setIsTokenSuccessOpen] = useState(false);
-  const [tokenPrintSize, setTokenPrintSize] = useState<'thermal' | 'A5'>(() => {
-    return (storage.get(STORAGE_KEYS.TOKEN_PRINT_SIZE, 'thermal') as 'thermal' | 'A5');
+  const [tokenPrintSize, setTokenPrintSize] = useState<'thermal' | 'thermal_80' | 'A5'>(() => {
+    return (storage.get(STORAGE_KEYS.TOKEN_PRINT_SIZE, 'thermal') as 'thermal' | 'thermal_80' | 'A5');
   });
 
-  const handleTokenSizeChange = (size: 'thermal' | 'A5') => {
+  const handleTokenSizeChange = (size: 'thermal' | 'thermal_80' | 'A5') => {
     setTokenPrintSize(size);
     storage.set(STORAGE_KEYS.TOKEN_PRINT_SIZE, size);
   };
@@ -519,7 +519,7 @@ export default function OPD() {
     const handleSync = () => {
       const charges = storage.get(STORAGE_KEYS.OPD_CHARGES, { reg: 200, appt: 200, consult: 500 });
       setAppointmentFee(charges.consult || 500);
-      const printSize = storage.get(STORAGE_KEYS.TOKEN_PRINT_SIZE, 'thermal') as 'thermal' | 'A5';
+      const printSize = storage.get(STORAGE_KEYS.TOKEN_PRINT_SIZE, 'thermal') as 'thermal' | 'thermal_80' | 'A5';
       setTokenPrintSize(printSize);
       setSelectedRegFees({
         reg: { name: 'OPD Registration Fee', checked: false, amount: 0 },
@@ -1943,6 +1943,7 @@ export default function OPD() {
     if (!lastToken) return;
 
     const isA5 = tokenPrintSize === 'A5';
+    const is80 = tokenPrintSize === 'thermal_80';
     const tokenHtml = isA5 ? `
       <html>
         <head>
@@ -2105,6 +2106,58 @@ export default function OPD() {
           </div>
         </body>
       </html>
+    ` : is80 ? `
+      <html>
+        <head>
+          <title>Token - ${lastToken.tokenNumber}</title>
+          <style>
+            @page { margin: 0; }
+            body { 
+              font-family: 'Courier New', Courier, monospace; 
+              width: 80mm; 
+              padding: 8mm; 
+              margin: 0;
+              font-size: 13px;
+              line-height: 1.3;
+              text-align: center;
+              color: #000;
+            }
+            .bold { font-weight: bold; }
+            .divider { border-top: 1px dashed #000; margin: 8px 0; }
+            .token-num { font-size: 42px; font-weight: bold; margin: 15px 0; border: 2px solid #000; padding: 10px; display: inline-block; border-radius: 4px; }
+            .header { margin-bottom: 12px; }
+            .hospital-name { font-size: 18px; font-weight: 900; }
+            .info-row { text-align: left; margin: 6px 0; }
+          </style>
+        </head>
+        <body onload="window.print();">
+          <div class="header">
+            <div class="bold hospital-name">GASTRO PLUS HOSPITAL</div>
+            <div style="font-size: 11px; margin-top: 4px; font-weight: bold;">OPD CONSULTATION TOKEN</div>
+          </div>
+          
+          <div class="divider"></div>
+          
+          <div class="token-num">${lastToken.tokenNumber}</div>
+          
+          <div class="divider"></div>
+          
+          <div style="text-align: left;">
+            <div class="info-row"><span class="bold">Patient:</span> ${lastToken.patientName}</div>
+            <div class="info-row"><span class="bold">MRN:</span> ${lastToken.mrn}</div>
+            <div class="info-row"><span class="bold">Doctor:</span> ${lastToken.doctor}</div>
+            <div class="info-row"><span class="bold">Date:</span> ${lastToken.date}</div>
+            ${lastToken.fee ? `<div class="info-row"><span class="bold">Fee Paid:</span> ₹${lastToken.fee}</div>` : ''}
+          </div>
+          
+          <div class="divider"></div>
+          
+          <div style="font-size: 10px; margin-top: 12px; line-height: 1.3;">
+            Please present this slip at OPD Consultation chamber outer desk.<br>
+            Please wait for your turn. Thank you!
+          </div>
+        </body>
+      </html>
     ` : `
       <html>
         <head>
@@ -2116,9 +2169,10 @@ export default function OPD() {
               width: 58mm; 
               padding: 5mm; 
               margin: 0;
-              font-size: 12px;
+              font-size: 11px;
               line-height: 1.2;
               text-align: center;
+              color: #000;
             }
             .bold { font-weight: bold; }
             .divider { border-top: 1px dashed #000; margin: 5px 0; }
@@ -2128,7 +2182,7 @@ export default function OPD() {
         </head>
         <body onload="window.print();">
           <div class="header">
-            <div class="bold" style="font-size: 16px;">GASTRO PLUS HOSPITAL</div>
+            <div class="bold" style="font-size: 14px;">GASTRO PLUS HOSPITAL</div>
             <div>OPD TOKEN</div>
           </div>
           
@@ -2148,7 +2202,7 @@ export default function OPD() {
           
           <div class="divider"></div>
           
-          <div style="font-size: 10px; margin-top: 10px;">
+          <div style="font-size: 9px; margin-top: 10px;">
             Please wait for your turn.<br>
             Thank you for your patience.
           </div>
@@ -2156,7 +2210,7 @@ export default function OPD() {
       </html>
     `;
 
-    safePrint(tokenHtml, isA5 ? 600 : 300, isA5 ? 800 : 400);
+    safePrint(tokenHtml, isA5 ? 600 : is80 ? 450 : 300, isA5 ? 800 : is80 ? 600 : 400);
   };
 
   const handleDeletePatient = async (id: string) => {
@@ -2366,6 +2420,7 @@ export default function OPD() {
     const patMRN = patients.find(p => isPatientIdMatch(p.id, apt.patientId) || isPatientIdMatch(p.id, apt.patient_id))?.mrn || apt.patientMrn || 'N/A';
     
     const isA5 = tokenPrintSize === 'A5';
+    const is80 = tokenPrintSize === 'thermal_80';
     const tokenHtml = isA5 ? `
       <html>
         <head>
@@ -2536,31 +2591,80 @@ export default function OPD() {
           </div>
         </body>
       </html>
-    ` : `
+    ` : is80 ? `
       <html>
         <head>
           <title>OPD Consultation Token</title>
           <style>
-            body { font-family: 'Courier New', Courier, monospace; padding: 25px; color: #000; text-align: center; }
-            .header { border-bottom: 2px dashed #333; padding-bottom: 12px; margin-bottom: 15px; }
-            .hospital-name { font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; }
-            .token-num { font-size: 42px; font-weight: 900; margin: 18px 0; border: 2px solid #000; padding: 8px 16px; display: inline-block; border-radius: 4px; }
-            .info-row { text-align: left; font-size: 13px; margin: 6px 0; line-height: 1.4; }
-            .info-label { font-weight: Bold; text-transform: uppercase; color: #333; }
-            .footer { border-top: 2px dashed #333; margin-top: 22px; padding-top: 12px; font-size: 11px; line-height: 1.4; color: #555; }
+            @page { margin: 0; }
+            body { 
+              font-family: 'Courier New', Courier, monospace; 
+              width: 80mm; 
+              padding: 8mm; 
+              margin: 0;
+              font-size: 13px;
+              line-height: 1.3;
+              text-align: center;
+              color: #000;
+            }
+            .bold { font-weight: bold; }
+            .divider { border-top: 1px dashed #000; margin: 8px 0; }
+            .token-num { font-size: 42px; font-weight: bold; margin: 15px 0; border: 2px solid #000; padding: 10px; display: inline-block; border-radius: 4px; }
+            .header { margin-bottom: 12px; }
+            .hospital-name { font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; }
+            .info-row { text-align: left; margin: 6px 0; }
           </style>
         </head>
         <body onload="window.print();">
           <div class="header">
             <div class="hospital-name">GASTRO PLUS HOSPITAL</div>
-            <div style="font-size: 10px; font-weight: Bold; margin-top: 3px; color: #444;">OPD CLINIC APPOINTMENT SLIP</div>
+            <div style="font-size: 11px; margin-top: 4px; font-weight: bold;">OPD CLINIC APPOINTMENT SLIP</div>
           </div>
           <div>
-            <div style="font-size: 12px; font-weight: Bold;">SESSION DATE: ${apt.appointment_date || apt.date || new Date().toISOString().split('T')[0]}</div>
+            <div style="font-size: 12px; font-weight: bold;">SESSION DATE: ${apt.appointment_date || apt.date || new Date().toISOString().split('T')[0]}</div>
             <div style="font-size: 11px; margin-top: 4px; color: #333; font-weight: bold;">APPOINTMENT NO: #${appointmentSeqMap[apt.id] ? (1000 + appointmentSeqMap[apt.id]) : 'N/A'}</div>
             <div class="token-num">TK-${opdTokenMap[apt.id] || 1}</div>
           </div>
-          <div style="margin: 20px 0; border: 1px solid #eee; padding: 10px; border-radius: 4px;">
+          <div class="divider"></div>
+          <div style="text-align: left;">
+            <div class="info-row"><span class="bold">PATIENT NAME :</span> ${patName}</div>
+            <div class="info-row"><span class="bold">PATIENT MRN  :</span> ${patMRN}</div>
+            <div class="info-row"><span class="bold">OPD DOCTOR   :</span> ${apt.doctor || 'Dr. Rajesh Sharma'}</div>
+            <div class="info-row"><span class="bold">TIME BLOCK   :</span> ${apt.appointment_time || apt.time || '10:00 AM'}</div>
+            <div class="info-row"><span class="bold">URGENCY LEVEL:</span> ${apt.urgency || 'Routine'}</div>
+          </div>
+          <div class="divider"></div>
+          <div style="font-size: 10px; margin-top: 12px; line-height: 1.3;">
+            Please present this slip at OPD Consultation chamber outer desk.<br>
+            Please wait for your turn. Thank you!
+          </div>
+        </body>
+      </html>
+    ` : `
+      <html>
+        <head>
+          <title>OPD Consultation Token</title>
+          <style>
+            body { font-family: 'Courier New', Courier, monospace; padding: 15px; color: #000; text-align: center; font-size: 11px; }
+            .header { border-bottom: 2px dashed #333; padding-bottom: 8px; margin-bottom: 10px; }
+            .hospital-name { font-size: 14px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; }
+            .token-num { font-size: 32px; font-weight: 900; margin: 10px 0; border: 2px solid #000; padding: 4px 8px; display: inline-block; border-radius: 4px; }
+            .info-row { text-align: left; font-size: 11px; margin: 4px 0; line-height: 1.3; }
+            .info-label { font-weight: bold; text-transform: uppercase; color: #333; }
+            .footer { border-top: 2px dashed #333; margin-top: 15px; padding-top: 8px; font-size: 9px; line-height: 1.3; color: #555; }
+          </style>
+        </head>
+        <body onload="window.print();">
+          <div class="header">
+            <div class="hospital-name">GASTRO PLUS HOSPITAL</div>
+            <div style="font-size: 9px; font-weight: bold; margin-top: 2px; color: #444;">OPD CLINIC APPOINTMENT SLIP</div>
+          </div>
+          <div>
+            <div style="font-size: 10px; font-weight: bold;">SESSION DATE: ${apt.appointment_date || apt.date || new Date().toISOString().split('T')[0]}</div>
+            <div style="font-size: 9px; margin-top: 2px; color: #333; font-weight: bold;">APPOINTMENT NO: #${appointmentSeqMap[apt.id] ? (1000 + appointmentSeqMap[apt.id]) : 'N/A'}</div>
+            <div class="token-num">TK-${opdTokenMap[apt.id] || 1}</div>
+          </div>
+          <div style="margin: 10px 0; border: 1px solid #eee; padding: 5px; border-radius: 4px;">
             <div class="info-row"><span class="info-label">PATIENT NAME :</span> ${patName}</div>
             <div class="info-row"><span class="info-label">PATIENT MRN  :</span> ${patMRN}</div>
             <div class="info-row"><span class="info-label">OPD DOCTOR   :</span> ${apt.doctor || 'Dr. Rajesh Sharma'}</div>
@@ -2568,13 +2672,13 @@ export default function OPD() {
             <div class="info-row"><span class="info-label">URGENCY LEVEL:</span> ${apt.urgency || 'Routine'}</div>
           </div>
           <div class="footer">
-            <p>Please present this slip at OPD Consultation chamber outer disk. Wait for your turn token call.</p>
-            <p style="font-weight: 900; color: #000; margin-top: 5px;">HAVE A HEALTHY DAY!</p>
+            <p>Please present this slip at OPD Consultation chamber outer desk. Wait for your turn token call.</p>
+            <p style="font-weight: 900; color: #000; margin-top: 3px;">HAVE A HEALTHY DAY!</p>
           </div>
         </body>
       </html>
     `;
-    safePrint(tokenHtml, isA5 ? 600 : 400, isA5 ? 800 : 550);
+    safePrint(tokenHtml, isA5 ? 600 : is80 ? 450 : 300, isA5 ? 800 : is80 ? 600 : 400);
   };
 
   const printLatestPrescriptionForPatient = (patient: any, doctorNameFallback?: string) => {
@@ -3476,39 +3580,70 @@ export default function OPD() {
             </Dialog>
           )}
 
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit">
-        <Button 
-          variant={activeTab === 'queue' ? 'secondary' : 'ghost'} 
-          size="sm" 
-          onClick={() => setActiveTab('queue')}
-          className={activeTab === 'queue' ? 'bg-white shadow-sm' : ''}
-        >
-          Live Queue
-        </Button>
-        <Button 
-          variant={activeTab === 'appointments' ? 'secondary' : 'ghost'} 
-          size="sm" 
-          onClick={() => setActiveTab('appointments')}
-          className={activeTab === 'appointments' ? 'bg-white shadow-sm' : ''}
-        >
-          Appointments
-        </Button>
-        <Button 
-          variant={activeTab === 'patients' ? 'secondary' : 'ghost'} 
-          size="sm" 
-          onClick={() => setActiveTab('patients')}
-          className={activeTab === 'patients' ? 'bg-white shadow-sm' : ''}
-        >
-          Patient Records
-        </Button>
-        <Button 
-          variant={activeTab === 'summary' ? 'secondary' : 'ghost'} 
-          size="sm" 
-          onClick={() => setActiveTab('summary')}
-          className={activeTab === 'summary' ? 'bg-white shadow-sm' : ''}
-        >
-          OPD Summary
-        </Button>
+      <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center mb-4">
+        <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit">
+          <Button 
+            variant={activeTab === 'queue' ? 'secondary' : 'ghost'} 
+            size="sm" 
+            onClick={() => setActiveTab('queue')}
+            className={activeTab === 'queue' ? 'bg-white shadow-sm' : ''}
+          >
+            Live Queue
+          </Button>
+          <Button 
+            variant={activeTab === 'appointments' ? 'secondary' : 'ghost'} 
+            size="sm" 
+            onClick={() => setActiveTab('appointments')}
+            className={activeTab === 'appointments' ? 'bg-white shadow-sm' : ''}
+          >
+            Appointments
+          </Button>
+          <Button 
+            variant={activeTab === 'patients' ? 'secondary' : 'ghost'} 
+            size="sm" 
+            onClick={() => setActiveTab('patients')}
+            className={activeTab === 'patients' ? 'bg-white shadow-sm' : ''}
+          >
+            Patient Records
+          </Button>
+          <Button 
+            variant={activeTab === 'summary' ? 'secondary' : 'ghost'} 
+            size="sm" 
+            onClick={() => setActiveTab('summary')}
+            className={activeTab === 'summary' ? 'bg-white shadow-sm' : ''}
+          >
+            OPD Summary
+          </Button>
+        </div>
+
+        {/* Token Print Settings Quick Switcher */}
+        <div className="flex items-center gap-2 text-xs bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-xl shadow-sm">
+          <Printer className="w-3.5 h-3.5 text-slate-500" />
+          <span className="font-semibold text-slate-600">Token Print Size:</span>
+          <div className="flex gap-1 bg-slate-200/50 p-0.5 rounded-md">
+            <button
+              type="button"
+              className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all ${tokenPrintSize === 'thermal' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+              onClick={() => handleTokenSizeChange('thermal')}
+            >
+              Thermal (58mm)
+            </button>
+            <button
+              type="button"
+              className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all ${tokenPrintSize === 'thermal_80' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+              onClick={() => handleTokenSizeChange('thermal_80')}
+            >
+              Thermal (80mm)
+            </button>
+            <button
+              type="button"
+              className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all ${tokenPrintSize === 'A5' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+              onClick={() => handleTokenSizeChange('A5')}
+            >
+              A5 Size
+            </button>
+          </div>
+        </div>
       </div>
 
       {activeTab === 'summary' ? (
@@ -4362,14 +4497,21 @@ export default function OPD() {
               <div className="flex gap-1 bg-slate-200/50 p-0.5 rounded-md">
                 <button
                   type="button"
-                  className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all ${tokenPrintSize === 'thermal' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                  className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${tokenPrintSize === 'thermal' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
                   onClick={() => handleTokenSizeChange('thermal')}
                 >
                   Thermal (58mm)
                 </button>
                 <button
                   type="button"
-                  className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all ${tokenPrintSize === 'A5' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                  className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${tokenPrintSize === 'thermal_80' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                  onClick={() => handleTokenSizeChange('thermal_80')}
+                >
+                  Thermal (80mm)
+                </button>
+                <button
+                  type="button"
+                  className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${tokenPrintSize === 'A5' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
                   onClick={() => handleTokenSizeChange('A5')}
                 >
                   A5 Size

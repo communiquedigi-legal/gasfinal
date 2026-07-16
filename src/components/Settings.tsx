@@ -851,8 +851,8 @@ export default function Settings({ currentUser, onUserUpdate, onHospitalUpdate }
     appt: 200,
     consult: 500
   }));
-  const [defaultTokenSize, setDefaultTokenSize] = useState<'thermal' | 'A5'>(() => {
-    return (storage.get(STORAGE_KEYS.TOKEN_PRINT_SIZE, 'thermal') as 'thermal' | 'A5');
+  const [defaultTokenSize, setDefaultTokenSize] = useState<'thermal' | 'thermal_80' | 'A5'>(() => {
+    return (storage.get(STORAGE_KEYS.TOKEN_PRINT_SIZE, 'thermal') as 'thermal' | 'thermal_80' | 'A5');
   });
   
   const [newBedRate, setNewBedRate] = useState({ type: '', rate: '' });
@@ -1902,13 +1902,14 @@ export default function Settings({ currentUser, onUserUpdate, onHospitalUpdate }
                       <Label className="text-xs text-slate-500">Default Token Print Size</Label>
                       <Select 
                         value={defaultTokenSize} 
-                        onValueChange={(val: 'thermal' | 'A5') => setDefaultTokenSize(val)}
+                        onValueChange={(val: 'thermal' | 'thermal_80' | 'A5') => setDefaultTokenSize(val)}
                       >
                         <SelectTrigger className="bg-slate-50 border-none">
                           <SelectValue placeholder="Select Default Size" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="thermal">Thermal Slip (58mm)</SelectItem>
+                          <SelectItem value="thermal_80">Thermal Slip (80mm)</SelectItem>
                           <SelectItem value="A5">A5 Paper Size</SelectItem>
                         </SelectContent>
                       </Select>
