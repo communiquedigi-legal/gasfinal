@@ -1114,7 +1114,17 @@ View full details at: ${shareUrl}
     return null;
   };
 
-  const patientAppointments = useMemo(() => appointments.filter(a => isPatientIdMatch(a.patient_id, selectedPatient?.id) || isPatientIdMatch(a.patientId, selectedPatient?.id)), [appointments, selectedPatient]);
+  const patientAppointments = useMemo(() => {
+    const list = appointments.filter(a => isPatientIdMatch(a.patient_id, selectedPatient?.id) || isPatientIdMatch(a.patientId, selectedPatient?.id));
+    return [...list].sort((a, b) => {
+      const dateA = a.date || a.appointment_date || a.appointmentDate || '';
+      const dateB = b.date || b.appointment_date || b.appointmentDate || '';
+      if (dateA !== dateB) return dateB.localeCompare(dateA);
+      const timeA = a.time || a.appointment_time || a.appointmentTime || '';
+      const timeB = b.time || b.appointment_time || b.appointmentTime || '';
+      return timeB.localeCompare(timeA);
+    });
+  }, [appointments, selectedPatient]);
   const patientBills = useMemo(() => billing.filter(b => isPatientIdMatch(b.patient_id, selectedPatient?.id) || isPatientIdMatch(b.patientId, selectedPatient?.id)), [billing, selectedPatient]);
   const patientClaims = useMemo(() => {
     const filtered = insuranceClaims.filter(c => isPatientIdMatch(c.patient_id, selectedPatient?.id) || isPatientIdMatch(c.patientId, selectedPatient?.id));

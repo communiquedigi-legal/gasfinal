@@ -3526,20 +3526,20 @@ export default function OPD() {
                     .sort((a, b) => {
                       const dateA = a.appointment_date || a.date || '';
                       const dateB = b.appointment_date || b.date || '';
-                      if (dateA !== dateB) return dateA.localeCompare(dateB);
+                      if (dateA !== dateB) return dateB.localeCompare(dateA);
 
                       const timeA = a.appointment_time || a.time || '';
                       const timeB = b.appointment_time || b.time || '';
                       
                       const tA = getAppointmentTimestamp(dateA, timeA);
                       const tB = getAppointmentTimestamp(dateB, timeB);
-                      if (tA !== tB) return tA - tB;
+                      if (tA !== tB) return tB - tA;
 
                       const createdA = new Date(a.created_at || 0).getTime();
                       const createdB = new Date(b.created_at || 0).getTime();
-                      if (createdA !== createdB) return createdA - createdB;
+                      if (createdA !== createdB) return createdB - createdA;
 
-                      return String(a.id || '').localeCompare(String(b.id || ''));
+                      return String(b.id || '').localeCompare(String(a.id || ''));
                     })
                     .slice((appointmentsPage - 1) * itemsPerPage, appointmentsPage * itemsPerPage)
                     .map((apt, i) => (
