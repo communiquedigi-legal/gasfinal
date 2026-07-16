@@ -266,9 +266,20 @@ export function getPrescriptionPrintHtml(
             text-transform: uppercase;
             letter-spacing: 0.02em;
           }
+          @media print {
+            .no-print { display: none !important; }
+          }
         </style>
       </head>
       <body>
+        <div class="no-print" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 12px 24px; display: flex; gap: 12px; justify-content: center; align-items: center; font-family: sans-serif; z-index: 1000; position: relative;">
+          <button onclick="window.print()" style="background: #1e3a8a; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            🖨️ Action: Print Prescription / Save PDF
+          </button>
+          <button onclick="window.close()" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+            ❌ Close
+          </button>
+        </div>
         <!-- Background Premium Watermark -->
         <div class="watermark">
           <svg viewBox="0 0 100 100" style="width: 100%; height: 100%;">
@@ -451,9 +462,6 @@ export function getPrescriptionPrintHtml(
         <script>
           window.onload = () => {
             window.print();
-          }
-          window.onafterprint = () => {
-            window.close();
           }
         </script>
       </body>

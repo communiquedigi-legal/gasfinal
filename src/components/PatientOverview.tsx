@@ -520,7 +520,7 @@ export default function PatientOverview({ userRole }: { userRole?: string }) {
     if (!selectedPatient) return;
     
     const shareUrl = `${window.location.origin}/patient-overview?id=${selectedPatient.id}`;
-    const doctor = staff.find(u => isPatientIdMatch(u.id, selectedPatient.attending_doctor_id)) || resolvedAttendingDoctor;
+    const doctor = staff.find(u => isPatientIdMatch(u.id, selectedPatient.attending_doctor_id) || isPatientIdMatch(u.name, selectedPatient.attending_doctor_id)) || resolvedAttendingDoctor;
     const claim = insuranceClaims.find(c => isPatientIdMatch(c.patient_id, selectedPatient.id));
     
     const patientData = `
@@ -1170,7 +1170,10 @@ View full details at: ${shareUrl}
   const resolvedAttendingDoctor = useMemo(() => {
     if (!selectedPatient) return null;
     const directDocId = selectedPatient.attending_doctor_id || selectedPatient.attendingDoctorId;
-    let found = directDocId ? staff.find((u: any) => String(u.id).toLowerCase() === String(directDocId).toLowerCase()) : null;
+    let found = directDocId ? (
+      staff.find((u: any) => String(u.id).toLowerCase() === String(directDocId).toLowerCase()) ||
+      staff.find((u: any) => String(u.name).toLowerCase() === String(directDocId).toLowerCase())
+    ) : null;
     
     if (!found && patientAppointments && patientAppointments.length > 0) {
       const sortedApts = [...patientAppointments].sort((a, b) => {
@@ -1996,7 +1999,9 @@ View full details at: ${shareUrl}
                                       const link = document.createElement('a');
                                       link.href = rx.attachmentUrl!;
                                       link.download = rx.attachmentName || 'prescription.pdf';
+                                      document.body.appendChild(link);
                                       link.click();
+                                      document.body.removeChild(link);
                                     }}
                                   >
                                     <Download className="w-3 h-3 mr-1" />
@@ -2589,7 +2594,9 @@ View full details at: ${shareUrl}
                     const link = document.createElement('a');
                     link.href = previewData.url;
                     link.download = previewData.name;
+                    document.body.appendChild(link);
                     link.click();
+                    document.body.removeChild(link);
                   }}>
                     <Download className="w-4 h-4 mr-2" />
                     Download to View
@@ -2614,7 +2621,9 @@ View full details at: ${shareUrl}
                 const link = document.createElement('a');
                 link.href = previewData.url;
                 link.download = previewData.name;
+                document.body.appendChild(link);
                 link.click();
+                document.body.removeChild(link);
               }
             }}>
               <Download className="w-4 h-4 mr-2" />

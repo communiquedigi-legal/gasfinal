@@ -65,15 +65,19 @@ export default function OPDSummaryView({ appointments = [], users = [] }: OPDSum
     });
   }, [appointments, users]);
 
-  // Overall statistics
-  const totalConsultations = processedAppts.length;
-  const totalRevenue = processedAppts.reduce((sum, item) => sum + item.cleanFee, 0);
+  // Overall statistics (Paid appointments only to match Dashboard collections)
+  const paidAppts = useMemo(() => {
+    return processedAppts.filter(apt => (apt.payment_status || apt.paymentStatus || 'Pending') === 'Paid');
+  }, [processedAppts]);
+
+  const totalConsultations = paidAppts.length;
+  const totalRevenue = paidAppts.reduce((sum, item) => sum + item.cleanFee, 0);
   const averageFee = totalConsultations > 0 ? Math.round(totalRevenue / totalConsultations) : 0;
 
   // 1. Date-wise Data Grouping (sorted recent first)
   const dateWiseData = useMemo(() => {
     const groups: Record<string, { date: string; count: number; revenue: number; doctors: Set<string> }> = {};
-    processedAppts.forEach(apt => {
+    paidAppts.forEach(apt => {
       const key = apt.cleanDate;
       if (!groups[key]) {
         groups[key] = { date: key, count: 0, revenue: 0, doctors: new Set() };
@@ -87,12 +91,12 @@ export default function OPDSummaryView({ appointments = [], users = [] }: OPDSum
     return Object.values(groups)
       .map(g => ({ ...g, doctorsList: Array.from(g.doctors) }))
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [processedAppts]);
+  }, [paidAppts]);
 
   // 2. Doctor-wise Data Grouping (sorted revenue highest first)
   const doctorWiseData = useMemo(() => {
     const groups: Record<string, { doctor: string; count: number; revenue: number }> = {};
-    processedAppts.forEach(apt => {
+    paidAppts.forEach(apt => {
       const key = apt.cleanDoctor;
       if (!groups[key]) {
         groups[key] = { doctor: key, count: 0, revenue: 0 };
@@ -101,12 +105,12 @@ export default function OPDSummaryView({ appointments = [], users = [] }: OPDSum
       groups[key].revenue += apt.cleanFee;
     });
     return Object.values(groups).sort((a, b) => b.revenue - a.revenue);
-  }, [processedAppts]);
+  }, [paidAppts]);
 
   // 3. Month-wise Data Grouping (Chronologically reverse sorted)
   const monthWiseData = useMemo(() => {
     const groups: Record<string, { monthYear: string; year: string; monthNum: string; count: number; revenue: number }> = {};
-    processedAppts.forEach(apt => {
+    paidAppts.forEach(apt => {
       const key = apt.monthYear;
       if (!groups[key]) {
         groups[key] = { monthYear: key, year: apt.year, monthNum: apt.monthNum, count: 0, revenue: 0 };
@@ -115,12 +119,12 @@ export default function OPDSummaryView({ appointments = [], users = [] }: OPDSum
       groups[key].revenue += apt.cleanFee;
     });
     return Object.values(groups).sort((a, b) => b.year.localeCompare(a.year) || b.monthNum.localeCompare(a.monthNum));
-  }, [processedAppts]);
+  }, [paidAppts]);
 
   // 4. Year-wise Data Grouping
   const yearWiseData = useMemo(() => {
     const groups: Record<string, { year: string; count: number; revenue: number }> = {};
-    processedAppts.forEach(apt => {
+    paidAppts.forEach(apt => {
       const key = apt.year;
       if (!groups[key]) {
         groups[key] = { year: key, count: 0, revenue: 0 };
@@ -129,7 +133,7 @@ export default function OPDSummaryView({ appointments = [], users = [] }: OPDSum
       groups[key].revenue += apt.cleanFee;
     });
     return Object.values(groups).sort((a, b) => b.year.localeCompare(a.year));
-  }, [processedAppts]);
+  }, [paidAppts]);
 
   // Max revenue across items for CSS custom bar charts
   const maxRevenue = useMemo(() => {

@@ -691,8 +691,8 @@ export default function IPD() {
     
     return patients.filter((p: any) => {
       const isAssigned = 
-        (p.attending_doctor_id && String(p.attending_doctor_id).toLowerCase() === docIdStr) ||
-        (p.attendingDoctorId && String(p.attendingDoctorId).toLowerCase() === docIdStr);
+        (p.attending_doctor_id && (String(p.attending_doctor_id).toLowerCase() === docIdStr || String(p.attending_doctor_id).toLowerCase() === docNameStr)) ||
+        (p.attendingDoctorId && (String(p.attendingDoctorId).toLowerCase() === docIdStr || String(p.attendingDoctorId).toLowerCase() === docNameStr));
         
       const hasAdmission = admissions.some((a: any) => 
         (a.patient_id === p.id || a.patientId === p.id) &&
@@ -4097,23 +4097,37 @@ export default function IPD() {
           <div className="flex-1 px-6 py-4 overflow-y-auto custom-scrollbar">
             <TabsContent value="doctor" className="mt-0 space-y-4">
                 <div className="space-y-4">
-                  {selectedPatient?.attending_doctor_id && (
-                    <div className="p-3 rounded-xl bg-blue-50 border border-blue-100 flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500">
-                      <div className="h-12 w-12 rounded-full bg-white border-2 border-blue-200 flex items-center justify-center text-blue-600 shadow-sm shrink-0">
-                        <Stethoscope className="h-6 w-6" />
+                  {(() => {
+                    const docId = selectedPatient?.attending_doctor_id || selectedPatient?.attendingDoctorId;
+                    const attDoc = docId ? users.find(u => 
+                      String(u.id).toLowerCase() === String(docId).toLowerCase() || 
+                      String(u.name).trim().toLowerCase() === String(docId).trim().toLowerCase()
+                    ) : null;
+                    
+                    if (!docId) return null;
+                    
+                    return (
+                      <div className="p-3 rounded-xl bg-blue-50 border border-blue-100 flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500">
+                        <div className="h-12 w-12 rounded-full bg-white border-2 border-blue-200 flex items-center justify-center text-blue-600 shadow-sm shrink-0">
+                          <Stethoscope className="h-6 w-6" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">Attending Clinician</p>
+                          <p className="text-base font-bold text-blue-900 truncate">
+                            {attDoc ? attDoc.name : docId}
+                          </p>
+                          <p className="text-xs text-blue-700 font-medium truncate">
+                            {attDoc ? (
+                              <>
+                                {attDoc.department} 
+                                {attDoc.specialization ? ` • ${attDoc.specialization}` : ''}
+                              </>
+                            ) : 'General OPD'}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">Attending Clinician</p>
-                        <p className="text-base font-bold text-blue-900 truncate">
-                          {users.find(u => u.id === selectedPatient.attending_doctor_id)?.name}
-                        </p>
-                        <p className="text-xs text-blue-700 font-medium truncate">
-                          {users.find(u => u.id === selectedPatient.attending_doctor_id)?.department} 
-                          {users.find(u => u.id === selectedPatient.attending_doctor_id)?.specialization ? ` • ${users.find(u => u.id === selectedPatient.attending_doctor_id)?.specialization}` : ''}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Render database clinical notes */}
                   {clinicalNotes.filter(n => n.note_type === 'DOCTOR').map(note => {
