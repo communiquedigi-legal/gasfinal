@@ -259,6 +259,7 @@ export const STORAGE_KEYS = {
   PATIENT_VITALS: 'hms_patient_vitals',
   TAX_SLABS: 'hms_tax_slabs',
   OPD_CHARGES: 'hms_opd_charges',
+  TOKEN_PRINT_SIZE: 'hms_token_print_size',
   EQUIPMENT: 'hms_equipment',
   BREAKDOWNS: 'hms_breakdowns',
 };

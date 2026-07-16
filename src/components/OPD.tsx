@@ -218,6 +218,15 @@ export default function OPD() {
     }
   };
   const [isTokenSuccessOpen, setIsTokenSuccessOpen] = useState(false);
+  const [tokenPrintSize, setTokenPrintSize] = useState<'thermal' | 'A5'>(() => {
+    return (storage.get(STORAGE_KEYS.TOKEN_PRINT_SIZE, 'thermal') as 'thermal' | 'A5');
+  });
+
+  const handleTokenSizeChange = (size: 'thermal' | 'A5') => {
+    setTokenPrintSize(size);
+    storage.set(STORAGE_KEYS.TOKEN_PRINT_SIZE, size);
+  };
+
   const [loading, setLoading] = useState(true);
   const [selectedDoctorFilter, setSelectedDoctorFilter] = useState<string>(() => {
     const sessionUser = storage.get(STORAGE_KEYS.SESSION_USER, null);
@@ -510,6 +519,8 @@ export default function OPD() {
     const handleSync = () => {
       const charges = storage.get(STORAGE_KEYS.OPD_CHARGES, { reg: 200, appt: 200, consult: 500 });
       setAppointmentFee(charges.consult || 500);
+      const printSize = storage.get(STORAGE_KEYS.TOKEN_PRINT_SIZE, 'thermal') as 'thermal' | 'A5';
+      setTokenPrintSize(printSize);
       setSelectedRegFees({
         reg: { name: 'OPD Registration Fee', checked: false, amount: 0 },
         appt: { name: 'Appointment Fee', checked: false, amount: charges.appt },
@@ -1927,7 +1938,170 @@ export default function OPD() {
   const printToken = () => {
     if (!lastToken) return;
 
-    const tokenHtml = `
+    const isA5 = tokenPrintSize === 'A5';
+    const tokenHtml = isA5 ? `
+      <html>
+        <head>
+          <title>Token - ${lastToken.tokenNumber}</title>
+          <style>
+            @page {
+              size: A5 portrait;
+              margin: 10mm;
+            }
+            body {
+              font-family: 'Inter', -apple-system, sans-serif;
+              color: #1e293b;
+              margin: 0;
+              padding: 0;
+              background: #ffffff;
+            }
+            .container {
+              border: 2px solid #e2e8f0;
+              border-radius: 12px;
+              padding: 24px;
+              height: calc(100% - 4px);
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              box-sizing: border-box;
+            }
+            .header {
+              text-align: center;
+              border-bottom: 2px dashed #cbd5e1;
+              padding-bottom: 15px;
+              margin-bottom: 20px;
+            }
+            .hospital-logo {
+              font-size: 28px;
+              margin-bottom: 4px;
+            }
+            .hospital-name {
+              font-size: 22px;
+              font-weight: 800;
+              color: #1e3a8a;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .sub-title {
+              font-size: 11px;
+              font-weight: 600;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              margin-top: 4px;
+            }
+            .token-container {
+              text-align: center;
+              background: #f1f5f9;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              padding: 18px;
+              margin-bottom: 20px;
+            }
+            .token-label {
+              font-size: 12px;
+              font-weight: 700;
+              color: #475569;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .token-num {
+              font-size: 52px;
+              font-weight: 900;
+              color: #1e3a8a;
+              margin: 8px 0;
+            }
+            .details-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 15px;
+              margin-bottom: 20px;
+            }
+            .detail-card {
+              background: #fafafa;
+              border: 1px solid #f1f5f9;
+              border-radius: 6px;
+              padding: 12px;
+            }
+            .info-label {
+              font-size: 10px;
+              font-weight: 700;
+              color: #64748b;
+              text-transform: uppercase;
+              margin-bottom: 4px;
+            }
+            .info-val {
+              font-size: 14px;
+              font-weight: 600;
+              color: #0f172a;
+            }
+            .footer {
+              border-top: 2px dashed #cbd5e1;
+              padding-top: 15px;
+              text-align: center;
+            }
+            .footer-text {
+              font-size: 11px;
+              color: #64748b;
+              line-height: 1.5;
+            }
+            .footer-salutation {
+              font-size: 12px;
+              font-weight: 800;
+              color: #1e3a8a;
+              margin-top: 8px;
+              text-transform: uppercase;
+            }
+          </style>
+        </head>
+        <body onload="window.print();">
+          <div class="container">
+            <div>
+              <div class="header">
+                <div class="hospital-logo">🏥</div>
+                <div class="hospital-name">GASTRO PLUS HOSPITAL</div>
+                <div class="sub-title">OPD CLINIC APPOINTMENT SLIP</div>
+              </div>
+              
+              <div class="token-container">
+                <div class="token-label">OPD CONSULTATION TOKEN</div>
+                <div class="token-num">${lastToken.tokenNumber}</div>
+              </div>
+              
+              <div class="details-grid">
+                <div class="detail-card">
+                  <div class="info-label">Patient Name</div>
+                  <div class="info-val">${lastToken.patientName}</div>
+                </div>
+                <div class="detail-card">
+                  <div class="info-label">Patient MRN</div>
+                  <div class="info-val" style="font-family: monospace; font-weight: bold;">${lastToken.mrn}</div>
+                </div>
+                <div class="detail-card">
+                  <div class="info-label">OPD Attending Doctor</div>
+                  <div class="info-val">${lastToken.doctor}</div>
+                </div>
+                <div class="detail-card">
+                  <div class="info-label">Session Date / Time</div>
+                  <div class="info-val">${lastToken.date}</div>
+                </div>
+                ${lastToken.fee ? `
+                <div class="detail-card" style="grid-column: span 2;">
+                  <div class="info-label">Registration Fee Paid</div>
+                  <div class="info-val" style="color: #16a34a; font-weight: bold; font-size: 15px;">₹${lastToken.fee}</div>
+                </div>
+                ` : ''}
+              </div>
+            </div>
+            
+            <div class="footer">
+              <div class="footer-text">Please present this slip at OPD Consultation chamber outer desk. Wait for your turn token call.</div>
+              <div class="footer-salutation">Have a healthy day!</div>
+            </div>
+          </div>
+        </body>
+      </html>
+    ` : `
       <html>
         <head>
           <title>Token - ${lastToken.tokenNumber}</title>
@@ -1978,7 +2152,7 @@ export default function OPD() {
       </html>
     `;
 
-    safePrint(tokenHtml, 300, 400);
+    safePrint(tokenHtml, isA5 ? 600 : 300, isA5 ? 800 : 400);
   };
 
   const handleDeletePatient = async (id: string) => {
@@ -2187,7 +2361,178 @@ export default function OPD() {
     const patName = patients.find(p => isPatientIdMatch(p.id, apt.patientId) || isPatientIdMatch(p.id, apt.patient_id))?.name || apt.patientName || 'WALK-IN PATIENT';
     const patMRN = patients.find(p => isPatientIdMatch(p.id, apt.patientId) || isPatientIdMatch(p.id, apt.patient_id))?.mrn || apt.patientMrn || 'N/A';
     
-    const tokenHtml = `
+    const isA5 = tokenPrintSize === 'A5';
+    const tokenHtml = isA5 ? `
+      <html>
+        <head>
+          <title>OPD Consultation Token</title>
+          <style>
+            @page {
+              size: A5 portrait;
+              margin: 10mm;
+            }
+            body {
+              font-family: 'Inter', -apple-system, sans-serif;
+              color: #1e293b;
+              margin: 0;
+              padding: 0;
+              background: #ffffff;
+            }
+            .container {
+              border: 2px solid #e2e8f0;
+              border-radius: 12px;
+              padding: 24px;
+              height: calc(100% - 4px);
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              box-sizing: border-box;
+            }
+            .header {
+              text-align: center;
+              border-bottom: 2px dashed #cbd5e1;
+              padding-bottom: 15px;
+              margin-bottom: 20px;
+            }
+            .hospital-logo {
+              font-size: 28px;
+              margin-bottom: 4px;
+            }
+            .hospital-name {
+              font-size: 22px;
+              font-weight: 800;
+              color: #1e3a8a;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .sub-title {
+              font-size: 11px;
+              font-weight: 600;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              margin-top: 4px;
+            }
+            .token-container {
+              text-align: center;
+              background: #f1f5f9;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              padding: 18px;
+              margin-bottom: 20px;
+            }
+            .token-label {
+              font-size: 12px;
+              font-weight: 700;
+              color: #475569;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .token-num {
+              font-size: 52px;
+              font-weight: 900;
+              color: #1e3a8a;
+              margin: 8px 0;
+            }
+            .appointment-num {
+              font-size: 11px;
+              font-weight: 600;
+              color: #64748b;
+            }
+            .details-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 15px;
+              margin-bottom: 20px;
+            }
+            .detail-card {
+              background: #fafafa;
+              border: 1px solid #f1f5f9;
+              border-radius: 6px;
+              padding: 12px;
+            }
+            .info-label {
+              font-size: 10px;
+              font-weight: 700;
+              color: #64748b;
+              text-transform: uppercase;
+              margin-bottom: 4px;
+            }
+            .info-val {
+              font-size: 14px;
+              font-weight: 600;
+              color: #0f172a;
+            }
+            .footer {
+              border-top: 2px dashed #cbd5e1;
+              padding-top: 15px;
+              text-align: center;
+            }
+            .footer-text {
+              font-size: 11px;
+              color: #64748b;
+              line-height: 1.5;
+            }
+            .footer-salutation {
+              font-size: 12px;
+              font-weight: 800;
+              color: #1e3a8a;
+              margin-top: 8px;
+              text-transform: uppercase;
+            }
+          </style>
+        </head>
+        <body onload="window.print();">
+          <div class="container">
+            <div>
+              <div class="header">
+                <div class="hospital-logo">🏥</div>
+                <div class="hospital-name">GASTRO PLUS HOSPITAL</div>
+                <div class="sub-title">OPD CLINIC APPOINTMENT SLIP</div>
+              </div>
+              
+              <div class="token-container">
+                <div class="token-label">OPD CONSULTATION TOKEN</div>
+                <div class="token-num">TK-${opdTokenMap[apt.id] || 1}</div>
+                <div class="appointment-num">APPOINTMENT NO: #${appointmentSeqMap[apt.id] ? (1000 + appointmentSeqMap[apt.id]) : 'N/A'}</div>
+              </div>
+              
+              <div class="details-grid">
+                <div class="detail-card">
+                  <div class="info-label">Patient Name</div>
+                  <div class="info-val">${patName}</div>
+                </div>
+                <div class="detail-card">
+                  <div class="info-label">Patient MRN</div>
+                  <div class="info-val" style="font-family: monospace; font-weight: bold;">${patMRN}</div>
+                </div>
+                <div class="detail-card">
+                  <div class="info-label">OPD Doctor</div>
+                  <div class="info-val">${apt.doctor || 'Dr. Rajesh Sharma'}</div>
+                </div>
+                <div class="detail-card">
+                  <div class="info-label">Session Date</div>
+                  <div class="info-val">${apt.appointment_date || apt.date || new Date().toISOString().split('T')[0]}</div>
+                </div>
+                <div class="detail-card">
+                  <div class="info-label">Time Block</div>
+                  <div class="info-val">${apt.appointment_time || apt.time || '10:00 AM'}</div>
+                </div>
+                <div class="detail-card">
+                  <div class="info-label">Urgency Level</div>
+                  <div class="info-val">${apt.urgency || 'Routine'}</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="footer">
+              <div class="footer-text">Please present this slip at OPD Consultation chamber outer desk. Wait for your turn token call.</div>
+              <div class="footer-salutation">Have a healthy day!</div>
+            </div>
+          </div>
+        </body>
+      </html>
+    ` : `
       <html>
         <head>
           <title>OPD Consultation Token</title>
@@ -2225,7 +2570,7 @@ export default function OPD() {
         </body>
       </html>
     `;
-    safePrint(tokenHtml, 400, 550);
+    safePrint(tokenHtml, isA5 ? 600 : 400, isA5 ? 800 : 550);
   };
 
   const printLatestPrescriptionForPatient = (patient: any, doctorNameFallback?: string) => {
@@ -4007,6 +4352,27 @@ export default function OPD() {
                 ) : null}
               </div>
             </div>
+            
+            <div className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-100 rounded-lg text-xs">
+              <span className="font-semibold text-slate-600">Token Print Size:</span>
+              <div className="flex gap-1 bg-slate-200/50 p-0.5 rounded-md">
+                <button
+                  type="button"
+                  className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all ${tokenPrintSize === 'thermal' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                  onClick={() => handleTokenSizeChange('thermal')}
+                >
+                  Thermal (58mm)
+                </button>
+                <button
+                  type="button"
+                  className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all ${tokenPrintSize === 'A5' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                  onClick={() => handleTokenSizeChange('A5')}
+                >
+                  A5 Size
+                </button>
+              </div>
+            </div>
+
             <div className="w-full flex gap-2 pt-2">
               <Button variant="outline" className="flex-1 gap-2 border-slate-200" onClick={printToken}>
                 <Printer className="w-4 h-4" />

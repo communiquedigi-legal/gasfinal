@@ -851,6 +851,9 @@ export default function Settings({ currentUser, onUserUpdate, onHospitalUpdate }
     appt: 200,
     consult: 500
   }));
+  const [defaultTokenSize, setDefaultTokenSize] = useState<'thermal' | 'A5'>(() => {
+    return (storage.get(STORAGE_KEYS.TOKEN_PRINT_SIZE, 'thermal') as 'thermal' | 'A5');
+  });
   
   const [newBedRate, setNewBedRate] = useState({ type: '', rate: '' });
   const [newOtRate, setNewOtRate] = useState({ type: '', rate: '' });
@@ -863,7 +866,8 @@ export default function Settings({ currentUser, onUserUpdate, onHospitalUpdate }
     storage.set(STORAGE_KEYS.LAB_RATES, labRates);
     storage.set(STORAGE_KEYS.MATERIAL_RATES, materialRates);
     storage.set(STORAGE_KEYS.OPD_CHARGES, opdCharges);
-  }, [bedRates, otRates, labRates, materialRates, opdCharges]);
+    storage.set(STORAGE_KEYS.TOKEN_PRINT_SIZE, defaultTokenSize);
+  }, [bedRates, otRates, labRates, materialRates, opdCharges, defaultTokenSize]);
 
   // Prescription State
   const [prescriptions, setPrescriptions] = useState<any[]>([]);
@@ -1890,16 +1894,39 @@ export default function Settings({ currentUser, onUserUpdate, onHospitalUpdate }
                     />
                   </div>
                 </div>
+
+                <div className="border-t border-slate-100 pt-4 mt-2 space-y-2">
+                  <Label className="text-slate-700 font-bold">OPD Token Printing Settings</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs text-slate-500">Default Token Print Size</Label>
+                      <Select 
+                        value={defaultTokenSize} 
+                        onValueChange={(val: 'thermal' | 'A5') => setDefaultTokenSize(val)}
+                      >
+                        <SelectTrigger className="bg-slate-50 border-none">
+                          <SelectValue placeholder="Select Default Size" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="thermal">Thermal Slip (58mm)</SelectItem>
+                          <SelectItem value="A5">A5 Paper Size</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="pt-2 flex justify-end">
                   <Button 
                     className="bg-medical-blue text-white" 
                     onClick={() => {
                       storage.set(STORAGE_KEYS.OPD_CHARGES, opdCharges);
+                      storage.set(STORAGE_KEYS.TOKEN_PRINT_SIZE, defaultTokenSize);
                       window.dispatchEvent(new Event('storage'));
-                      toast.success('OPD & Consultation charges saved successfully');
+                      toast.success('OPD charges and printing settings saved successfully');
                     }}
                   >
-                    Save Charges
+                    Save Charges & Print Settings
                   </Button>
                 </div>
               </CardContent>
