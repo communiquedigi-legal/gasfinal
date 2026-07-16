@@ -441,6 +441,10 @@ export default function Lab() {
     if (!checkPermission()) return;
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error('File size exceeds the 2MB limit. Please compress your document before uploading.');
+        return;
+      }
       const reader = new FileReader();
       reader.onload = (event) => {
         const patient = patients.find(p => p.id === selectedPatientId);
@@ -464,6 +468,10 @@ export default function Lab() {
     if (!checkPermission()) return;
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error('File size exceeds the 2MB limit. Please compress your image before uploading.');
+        return;
+      }
       const reader = new FileReader();
       reader.onload = (event) => {
         const newFile = {
@@ -488,6 +496,10 @@ export default function Lab() {
     if (file) {
       if (!selectedRadioOrder) {
         toast.error('Please select an active radiology order first');
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error('File size exceeds the 2MB limit. Please compress your scan image before uploading.');
         return;
       }
       const reader = new FileReader();

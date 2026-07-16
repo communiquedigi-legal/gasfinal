@@ -908,6 +908,10 @@ View full details at: ${shareUrl}
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error('File size exceeds the 2MB limit. Please compress your file before uploading.');
+        return;
+      }
       const reader = new FileReader();
       reader.onload = (event) => {
         setUploadedFile({

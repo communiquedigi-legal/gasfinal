@@ -1244,6 +1244,10 @@ export default function Pharmacy() {
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
                                 if (file) {
+                                  if (file.size > 1024 * 1024) {
+                                    toast.error('Logo file size must be under 1MB.');
+                                    return;
+                                  }
                                   const reader = new FileReader();
                                   reader.onloadend = () => {
                                     setPharmacySettings({ ...pharmacySettings, logoUrl: reader.result as string });

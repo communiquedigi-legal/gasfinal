@@ -545,6 +545,10 @@ export default function OPD() {
         toast.error('Please upload a PDF file');
         return;
       }
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error('File size exceeds the 2MB limit. Please compress your PDF before uploading.');
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         setPrescription({

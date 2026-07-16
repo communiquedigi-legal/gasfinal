@@ -180,11 +180,11 @@ function SidebarContent({ onLogout, user, hospitalInfo }: { onLogout: () => void
           <div className="flex items-center gap-3 mb-3">
             <Avatar className="w-10 h-10 border-2 border-white shadow-sm">
               <AvatarImage src={user?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anjali"} />
-              <AvatarFallback>{user?.name.substring(0, 2).toUpperCase() || "AG"}</AvatarFallback>
+              <AvatarFallback>{(user?.name || "AG").substring(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div className="overflow-hidden">
               <p className="text-sm font-bold truncate text-slate-900">{user?.name || "Dr. Anjali Gupta"}</p>
-              <p className="text-[10px] text-slate-700 uppercase font-black tracking-tight">{user?.role.replace('_', ' ') || "Super Admin"}</p>
+              <p className="text-[10px] text-slate-700 uppercase font-black tracking-tight">{(user?.role || "SUPER_ADMIN").replace('_', ' ')}</p>
             </div>
           </div>
           <Button 
@@ -617,17 +617,17 @@ export default function App() {
       // Check offline records and sync them automatically!
       try {
         const patients = storage.get(STORAGE_KEYS.PATIENTS, []);
-        const offlinePatients = patients.filter((p: any) => p.id && String(p.id).startsWith('off-'));
+        const offlinePatients = Array.isArray(patients) ? patients.filter((p: any) => p && p.id && String(p.id).startsWith('off-')) : [];
         const appointments = storage.get(STORAGE_KEYS.APPOINTMENTS, []);
-        const offlineAppointments = appointments.filter((a: any) => a.id && String(a.id).startsWith('off-'));
+        const offlineAppointments = Array.isArray(appointments) ? appointments.filter((a: any) => a && a.id && String(a.id).startsWith('off-')) : [];
         const admissions = storage.get('hms_admissions', []);
-        const offlineAdmissions = admissions.filter((ad: any) => ad.id && String(ad.id).startsWith('off-'));
+        const offlineAdmissions = Array.isArray(admissions) ? admissions.filter((ad: any) => ad && ad.id && String(ad.id).startsWith('off-')) : [];
         const prescriptions = storage.get(STORAGE_KEYS.PRESCRIPTIONS, []);
-        const offlinePrescriptions = prescriptions.filter((rx: any) => rx.id && String(rx.id).startsWith('off-'));
+        const offlinePrescriptions = Array.isArray(prescriptions) ? prescriptions.filter((rx: any) => rx && rx.id && String(rx.id).startsWith('off-')) : [];
         const bills = storage.get(STORAGE_KEYS.BILLING, []);
-        const offlineInvoices = bills.filter((b: any) => b.id && String(b.id).startsWith('off-'));
+        const offlineInvoices = Array.isArray(bills) ? bills.filter((b: any) => b && b.id && String(b.id).startsWith('off-')) : [];
         const expenses = storage.get(STORAGE_KEYS.EXPENSES, []);
-        const offlineExpenses = expenses.filter((e: any) => e.id && String(e.id).startsWith('off-'));
+        const offlineExpenses = Array.isArray(expenses) ? expenses.filter((e: any) => e && e.id && String(e.id).startsWith('off-')) : [];
         
         const hasOfflineData = (
           offlinePatients.length > 0 || 
@@ -746,12 +746,12 @@ function AppLayout({ user, hospitalInfo, handleLogout, isMobileMenuOpen, setIsMo
             
             <div className="flex items-center gap-2">
               <div className="text-right hidden sm:block">
-                <p className="text-xs font-bold leading-none text-slate-950">{user?.name}</p>
-                <p className="text-[9px] text-slate-800 uppercase mt-1 font-black tracking-wider">{user?.role.replace('_', ' ')}</p>
+                <p className="text-xs font-bold leading-none text-slate-950">{user?.name || "User"}</p>
+                <p className="text-[9px] text-slate-800 uppercase mt-1 font-black tracking-wider">{(user?.role || "SUPER_ADMIN").replace('_', ' ')}</p>
               </div>
               <Avatar className="w-8 h-8 cursor-pointer hover:ring-2 hover:ring-white/50 transition-all">
                 <AvatarImage src={user?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anjali"} />
-                <AvatarFallback>{user?.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                <AvatarFallback>{(user?.name || "AG").substring(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
             </div>
           </div>

@@ -731,12 +731,12 @@ export default function Settings({ currentUser, onUserUpdate, onHospitalUpdate }
   const handleTemplateUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setTemplateImage(reader.result as string);
-        toast.success('Document template updated successfully');
-      };
-      reader.readAsDataURL(file);
+      toast.loading('Processing and optimizing template image...', { id: 'template-upload-toast' });
+      resizeImage(file, 1200, 1600, (resized) => {
+        setTemplateImage(resized);
+        toast.dismiss('template-upload-toast');
+        toast.success('Document template updated and optimized successfully');
+      });
     }
   };
   // Hospital Info State
