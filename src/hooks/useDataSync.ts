@@ -50,8 +50,10 @@ export function useDataSync(fetchData: () => void | Promise<void>, deps: any[] =
     };
 
     const handleStorage = (event: StorageEvent) => {
-      if (!event.key || event.key.startsWith('hms_')) {
-        console.log('useDataSync: Storage key updated or manual storage event, refreshing:', event.key || 'manual');
+      // Only process trusted (cross-tab/window) storage events to prevent infinite self-render/sync loops.
+      // Synthetic same-tab storage events dispatched via window.dispatchEvent will have isTrusted = false.
+      if (event.isTrusted && (!event.key || event.key.startsWith('hms_'))) {
+        console.log('useDataSync: Storage key updated in another tab/window, refreshing:', event.key || 'manual');
         debouncedFetch();
       }
     };
