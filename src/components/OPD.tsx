@@ -232,6 +232,7 @@ export default function OPD() {
     const cachedAppointments = storage.get(STORAGE_KEYS.APPOINTMENTS, []);
     return cachedPatients.length === 0 && cachedAppointments.length === 0;
   });
+  const isInitialRef = useRef(true);
   const [selectedDoctorFilter, setSelectedDoctorFilter] = useState<string>(() => {
     const sessionUser = storage.get(STORAGE_KEYS.SESSION_USER, null);
     if (sessionUser && (sessionUser.role?.toUpperCase() === 'DOCTOR' || sessionUser.role?.toUpperCase() === 'SURGEON')) {
@@ -433,9 +434,13 @@ export default function OPD() {
   }));
 
   const fetchData = async () => {
-    const isInitial = patients.length === 0 && appointments.length === 0;
-    if (isInitial) {
-      setLoading(true);
+    if (isInitialRef.current) {
+      isInitialRef.current = false;
+      const cachedPatients = storage.get(STORAGE_KEYS.PATIENTS, []);
+      const cachedAppointments = storage.get(STORAGE_KEYS.APPOINTMENTS, []);
+      if (cachedPatients.length === 0 && cachedAppointments.length === 0) {
+        setLoading(true);
+      }
     }
     try {
       const [patientsData, appointmentsData, prescriptionsData, staffData] = await Promise.all([
