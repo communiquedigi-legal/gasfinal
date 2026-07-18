@@ -227,7 +227,11 @@ export default function OPD() {
     storage.set(STORAGE_KEYS.TOKEN_PRINT_SIZE, size);
   };
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    const cachedPatients = storage.get(STORAGE_KEYS.PATIENTS, []);
+    const cachedAppointments = storage.get(STORAGE_KEYS.APPOINTMENTS, []);
+    return cachedPatients.length === 0 && cachedAppointments.length === 0;
+  });
   const [selectedDoctorFilter, setSelectedDoctorFilter] = useState<string>(() => {
     const sessionUser = storage.get(STORAGE_KEYS.SESSION_USER, null);
     if (sessionUser && (sessionUser.role?.toUpperCase() === 'DOCTOR' || sessionUser.role?.toUpperCase() === 'SURGEON')) {
@@ -263,8 +267,8 @@ export default function OPD() {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [patients, setPatients] = useState<any[]>([]);
-  const [appointments, setAppointments] = useState<any[]>([]);
+  const [patients, setPatients] = useState<any[]>(() => storage.get(STORAGE_KEYS.PATIENTS, []));
+  const [appointments, setAppointments] = useState<any[]>(() => storage.get(STORAGE_KEYS.APPOINTMENTS, []));
   const [users, setUsers] = useState<any[]>(() => storage.get(STORAGE_KEYS.USERS, MOCK_USERS));
   const [newPatient, setNewPatient] = useState({ 
     name: '', 
@@ -418,7 +422,7 @@ export default function OPD() {
     }
   });
 
-  const [savedPrescriptions, setSavedPrescriptions] = useState<any[]>([]);
+  const [savedPrescriptions, setSavedPrescriptions] = useState<any[]>(() => storage.get(STORAGE_KEYS.PRESCRIPTIONS, []));
   const [templateImage, setTemplateImage] = useState<string | null>(storage.get(STORAGE_KEYS.TEMPLATE_IMAGE, null));
   const [hospitalInfo, setHospitalInfo] = useState(storage.get(STORAGE_KEYS.HOSPITAL_INFO, {
     name: 'Gastro Plus Hospital',
@@ -514,6 +518,20 @@ export default function OPD() {
       storage.set('hms_prescriptions', savedPrescriptions);
     }
   }, [savedPrescriptions]);
+
+  useEffect(() => {
+    const current = storage.get(STORAGE_KEYS.PATIENTS, null);
+    if (JSON.stringify(current) !== JSON.stringify(patients)) {
+      storage.set(STORAGE_KEYS.PATIENTS, patients);
+    }
+  }, [patients]);
+
+  useEffect(() => {
+    const current = storage.get(STORAGE_KEYS.APPOINTMENTS, null);
+    if (JSON.stringify(current) !== JSON.stringify(appointments)) {
+      storage.set(STORAGE_KEYS.APPOINTMENTS, appointments);
+    }
+  }, [appointments]);
 
   useEffect(() => {
     const handleSync = () => {
