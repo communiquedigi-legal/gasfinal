@@ -87,8 +87,8 @@ export default function Billing() {
   const [templateImage, setTemplateImage] = useState<string | null>(() => storage.get(STORAGE_KEYS.TEMPLATE_IMAGE, null));
   const [hospitalInfo, setHospitalInfo] = useState(() => storage.get(STORAGE_KEYS.HOSPITAL_INFO, {
     name: 'New Gastro Plus Hospital',
-    address: 'New Gastro Plus Hospital ,Infront of Aura Inn Bansi Road Basti',
-    phone: '+91 6394517005',
+    address: 'Gastro Plus Hospital, Plot No. 7 & 8 ,Om Shiv Nagar, Gufa Mandir Road,Lal Ghati Bhopal,462030, Madhya Pradesh',
+    phone: '9109102145/9109101246',
     email: 'info@gastroplushospital.com',
     logo: null as string | null
   }));

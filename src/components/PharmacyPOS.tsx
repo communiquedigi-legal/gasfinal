@@ -705,8 +705,8 @@ export default function PharmacyPOS() {
       logo?: string | null;
     }>(STORAGE_KEYS.HOSPITAL_INFO, {
       name: 'New Gastro Plus Hospital',
-      address: 'New Gastro Plus Hospital ,Infront of Aura Inn Bansi Road Basti',
-      phone: '+91 6394517005'
+      address: 'Gastro Plus Hospital, Plot No. 7 & 8 ,Om Shiv Nagar, Gufa Mandir Road,Lal Ghati Bhopal,462030, Madhya Pradesh',
+      phone: '9109102145/9109101246'
     });
 
     const printWindow = window.open('', '_blank', 'width=300,height=600');

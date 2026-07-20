@@ -515,17 +515,17 @@ function QuickRegisterForm({ currentUser }: { currentUser: UserType | null }) {
 
 export default function App() {
   const [hospitalInfo, setHospitalInfo] = useState(() => storage.get(STORAGE_KEYS.HOSPITAL_INFO, {
-    name: 'Gastro Plus Hospital',
-    address: 'Gastro Plus Hospital ,Infront of Aura Inn Bansi Road Basti',
+    name: 'New Gastro Plus Hospital',
+    address: 'Gastro Plus Hospital, Plot No. 7 & 8 ,Om Shiv Nagar, Gufa Mandir Road,Lal Ghati Bhopal,462030, Madhya Pradesh',
     gst: '27AAAAA0000A1Z5',
-    phone: '+91 6394517005',
+    phone: '9109102145/9109101246',
     email: 'info@gastroplushospital.com',
     logo: null as string | null
   }) || {
-    name: 'Gastro Plus Hospital',
-    address: 'Gastro Plus Hospital ,Infront of Aura Inn Bansi Road Basti',
+    name: 'New Gastro Plus Hospital',
+    address: 'Gastro Plus Hospital, Plot No. 7 & 8 ,Om Shiv Nagar, Gufa Mandir Road,Lal Ghati Bhopal,462030, Madhya Pradesh',
     gst: '27AAAAA0000A1Z5',
-    phone: '+91 6394517005',
+    phone: '9109102145/9109101246',
     email: 'info@gastroplushospital.com',
     logo: null
   });
@@ -566,6 +566,25 @@ export default function App() {
 
   // Load hospital info and perform automatic offline sync on startup
   useEffect(() => {
+    // Ensure hospital info is updated to Bhopal address and phone numbers
+    try {
+      const currentHosp = storage.get(STORAGE_KEYS.HOSPITAL_INFO, null);
+      if (!currentHosp || currentHosp.address?.includes('Basti') || currentHosp.address?.includes('123 Healthcare Way') || currentHosp.phone?.includes('6394517005')) {
+        const updatedHosp = {
+          name: 'New Gastro Plus Hospital',
+          address: 'Gastro Plus Hospital, Plot No. 7 & 8 ,Om Shiv Nagar, Gufa Mandir Road,Lal Ghati Bhopal,462030, Madhya Pradesh',
+          gst: '27AAAAA0000A1Z5',
+          phone: '9109102145/9109101246',
+          email: 'info@gastroplushospital.com',
+          logo: currentHosp?.logo || null
+        };
+        storage.set(STORAGE_KEYS.HOSPITAL_INFO, updatedHosp);
+        setHospitalInfo(updatedHosp);
+      }
+    } catch (err) {
+      console.warn('Error upgrading hospital info in storage:', err);
+    }
+
     // One-time complete purge of all preloaded mock/demo data to start fresh with empty entries
     try {
       const clearedKey = 'hms_database_cleared_v2';

@@ -62,8 +62,8 @@ export function getPrescriptionPrintHtml(
   );
 
   const hospName = hospitalInfo?.name || 'NEW GASTRO PLUS HOSPITAL';
-  const hospAddress = hospitalInfo?.address || '123 Healthcare Way, Medical City';
-  const hospPhone = hospitalInfo?.phone || '+91 98765 43210';
+  const hospAddress = hospitalInfo?.address || 'Gastro Plus Hospital, Plot No. 7 & 8 ,Om Shiv Nagar, Gufa Mandir Road,Lal Ghati Bhopal,462030, Madhya Pradesh';
+  const hospPhone = hospitalInfo?.phone || '9109102145/9109101246';
   const hospEmail = `contact@${hospName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'globalhospital'}.com`;
   
   const patName = patient?.name || 'N/A';
@@ -439,14 +439,13 @@ export function getPrescriptionPrintHtml(
               <!-- Middle/Left: Location Address (Reddish brown/crimson) -->
               <div style="display: flex; align-items: center; gap: 6px; color: #b91c1c; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 11px; font-weight: 700; max-width: 320px; line-height: 1.4;">
                 <span style="font-size: 14px; color: #ef4444;">📍</span>
-                <span>Near-Aura Inn Hotel, Bargadwa Badeban, Bansi & Dumariyaganj Road-Basti 272001</span>
+                <span>${hospAddress}</span>
               </div>
 
               <!-- Right: Telephone Numbers with red circular icon -->
               <div style="display: flex; align-items: center; gap: 10px; border-left: 1.5px solid #e2e8f0; padding-left: 15px;">
                 <div style="display: flex; flex-direction: column; text-align: left; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; font-weight: 800; color: #1d4ed8; line-height: 1.3;">
-                  <span style="display: flex; align-items: center; gap: 4px;">+91-8299713820</span>
-                  <span style="display: flex; align-items: center; gap: 4px;">+91-7007128144</span>
+                  ${hospPhone.split('/').map(num => `<span style="display: flex; align-items: center; gap: 4px;">${num.trim().startsWith('+91') ? '' : '+91-'}${num.trim()}</span>`).join('')}
                 </div>
                 <div style="width: 28px; height: 28px; background-color: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                   📞

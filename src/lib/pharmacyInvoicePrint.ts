@@ -16,18 +16,18 @@ export interface PharmacySettings {
 
 export const DEFAULT_PHARMACY_SETTINGS: PharmacySettings = {
   logoUrl: '',
-  pharmacyName: 'Gastro Plus Hospital',
-  address: 'Infront of Aura Inn , Bansi Road near Badewan , Basti UP 272001',
-  phone: '+918601561055',
+  pharmacyName: 'New Gastro Plus Hospital',
+  address: 'Gastro Plus Hospital, Plot No. 7 & 8 ,Om Shiv Nagar, Gufa Mandir Road,Lal Ghati Bhopal,462030, Madhya Pradesh',
+  phone: '9109102145/9109101246',
   tagline: 'A single stop for all your Healthcare needs!',
   gstin: '',
   bankName: 'pnb',
-  bankBranch: 'BASTI',
+  bankBranch: 'BHOPAL',
   bankAccNo: '11272187888',
-  bankIfsc: 'HDFC272001',
+  bankIfsc: 'HDFC462030',
   upiId: 'GDHJGFD',
   termsAndConditions: [
-    'Subject to Uttar Pradesh Jurisdiction.',
+    'Subject to Madhya Pradesh Jurisdiction.',
     'Our Responsibility Ceases as soon as goods leave our Premises.',
     'Goods once sold will not be taken back.',
     'Delivery Ex-Premises.'

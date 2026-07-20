@@ -742,9 +742,9 @@ export default function Settings({ currentUser, onUserUpdate, onHospitalUpdate }
   // Hospital Info State
   const [hospitalInfo, setHospitalInfo] = useState(() => storage.get(STORAGE_KEYS.HOSPITAL_INFO, {
     name: 'New Gastro Plus Hospital',
-    address: 'New Gastro Plus Hospital ,Infront of Aura Inn Bansi Road Basti',
+    address: 'Gastro Plus Hospital, Plot No. 7 & 8 ,Om Shiv Nagar, Gufa Mandir Road,Lal Ghati Bhopal,462030, Madhya Pradesh',
     gst: '27AAAAA0000A1Z5',
-    phone: '+91 6394517005',
+    phone: '9109102145/9109101246',
     email: 'info@gastroplushospital.com',
     logo: null as string | null
   }));
@@ -1052,8 +1052,8 @@ export default function Settings({ currentUser, onUserUpdate, onHospitalUpdate }
       logo?: string | null;
     }>(STORAGE_KEYS.HOSPITAL_INFO, {
       name: 'NEW GASTRO PLUS HOSPITAL',
-      address: '123, Medical Square, City Center',
-      phone: '+91 98765 43210'
+      address: 'Gastro Plus Hospital, Plot No. 7 & 8 ,Om Shiv Nagar, Gufa Mandir Road,Lal Ghati Bhopal,462030, Madhya Pradesh',
+      phone: '9109102145/9109101246'
     });
     
     const patient = MOCK_PATIENTS.find(p => p.id === pres.patientId);
