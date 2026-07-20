@@ -892,8 +892,8 @@ export default function Dashboard() {
   }, [filteredBilling, appointments, users, timeFrame, dateRange]);
 
   const [hospitalInfo] = useState(() => storage.get(STORAGE_KEYS.HOSPITAL_INFO, {
-    name: 'Gastro Plus Hospital'
-  }) || { name: 'Gastro Plus Hospital' });
+    name: 'New Gastro Plus Hospital'
+  }) || { name: 'New Gastro Plus Hospital' });
 
   if (isLoading) {
     return (

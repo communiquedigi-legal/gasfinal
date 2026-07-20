@@ -352,8 +352,8 @@ export default function Lab() {
   
   const [templateImage, setTemplateImage] = useState<string | null>(() => storage.get(STORAGE_KEYS.TEMPLATE_IMAGE, null));
   const [hospitalInfo, setHospitalInfo] = useState(() => storage.get(STORAGE_KEYS.HOSPITAL_INFO, {
-    name: 'Gastro Plus Hospital',
-    address: 'Gastro Plus Hospital ,Infront of Aura Inn Bansi Road Basti',
+    name: 'New Gastro Plus Hospital',
+    address: 'New Gastro Plus Hospital ,Infront of Aura Inn Bansi Road Basti',
     phone: '+91 6394517005',
     email: 'info@gastroplushospital.com',
     logo: null as string | null
@@ -1056,7 +1056,7 @@ export default function Lab() {
             </div>
 
             <div style="margin-top: 80px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px;">
-              Thank you for choosing Gastro Plus Hospital Diagnostics. Get well soon!
+              Thank you for choosing New Gastro Plus Hospital Diagnostics. Get well soon!
             </div>
           </div>
           <script>

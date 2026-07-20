@@ -741,8 +741,8 @@ export default function Settings({ currentUser, onUserUpdate, onHospitalUpdate }
   };
   // Hospital Info State
   const [hospitalInfo, setHospitalInfo] = useState(() => storage.get(STORAGE_KEYS.HOSPITAL_INFO, {
-    name: 'Gastro Plus Hospital',
-    address: 'Gastro Plus Hospital ,Infront of Aura Inn Bansi Road Basti',
+    name: 'New Gastro Plus Hospital',
+    address: 'New Gastro Plus Hospital ,Infront of Aura Inn Bansi Road Basti',
     gst: '27AAAAA0000A1Z5',
     phone: '+91 6394517005',
     email: 'info@gastroplushospital.com',
@@ -1051,7 +1051,7 @@ export default function Settings({ currentUser, onUserUpdate, onHospitalUpdate }
       phone: string;
       logo?: string | null;
     }>(STORAGE_KEYS.HOSPITAL_INFO, {
-      name: 'GASTRO PLUS HOSPITAL',
+      name: 'NEW GASTRO PLUS HOSPITAL',
       address: '123, Medical Square, City Center',
       phone: '+91 98765 43210'
     });

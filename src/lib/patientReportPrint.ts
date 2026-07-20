@@ -29,7 +29,7 @@ export function getPatientReportHtml(data: PatientReportData): string {
     dues
   } = data;
 
-  const hospName = hospitalInfo?.name || 'GASTRO PLUS HOSPITAL';
+  const hospName = hospitalInfo?.name || 'NEW GASTRO PLUS HOSPITAL';
   const hospAddress = hospitalInfo?.address || '123 Healthcare Way, Medical City';
   const hospPhone = hospitalInfo?.phone || '+91 98765 43210';
 

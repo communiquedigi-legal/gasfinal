@@ -61,7 +61,7 @@ export function getPrescriptionPrintHtml(
     (actualTemplateImage.startsWith('http') || actualTemplateImage.startsWith('data:image') || actualTemplateImage.startsWith('/'))
   );
 
-  const hospName = hospitalInfo?.name || 'GASTRO PLUS HOSPITAL';
+  const hospName = hospitalInfo?.name || 'NEW GASTRO PLUS HOSPITAL';
   const hospAddress = hospitalInfo?.address || '123 Healthcare Way, Medical City';
   const hospPhone = hospitalInfo?.phone || '+91 98765 43210';
   const hospEmail = `contact@${hospName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'globalhospital'}.com`;
@@ -315,16 +315,16 @@ export function getPrescriptionPrintHtml(
                     <!-- Letters GH in bold blue -->
                     <text x="50" y="53" font-family="'Plus Jakarta Sans', sans-serif" font-weight="900" font-size="22" fill="#1d4ed8" text-anchor="middle" dominant-baseline="middle" style="letter-spacing: -0.5px;">G+</text>
                     <!-- Hindi curved text at top -->
-                    <text x="50" y="24" font-family="'Noto Sans Devanagari', sans-serif" font-weight="700" font-size="5.5" fill="#ef4444" text-anchor="middle">गैस्ट्रो प्लस हॉस्पिटल</text>
+                    <text x="50" y="24" font-family="'Noto Sans Devanagari', sans-serif" font-weight="700" font-size="5.5" fill="#ef4444" text-anchor="middle">न्यू गैस्ट्रो प्लस हॉस्पिटल</text>
                     <!-- English curved text at bottom -->
-                    <text x="50" y="80" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="5.5" fill="#1d4ed8" text-anchor="middle">GASTRO PLUS HOSPITAL</text>
+                    <text x="50" y="80" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="5.5" fill="#1d4ed8" text-anchor="middle">NEW GASTRO PLUS HOSPITAL</text>
                   </svg>
                 </div>
                 
                 <!-- Middle: Center Title with Red & White Styling from Image 2 -->
                 <div style="flex-grow: 1; text-align: center;">
-                  <div style="font-family: 'Noto Sans Devanagari', sans-serif; font-weight: 900; font-size: 38px; color: #ef4444; text-shadow: 2px 2px 0px #fff, -2px -2px 0px #fff, 2px -2px 0px #fff, -2px 2px 0px #fff, 3px 3px 5px rgba(0,0,0,0.2); text-transform: uppercase; margin: 0; line-height: 1; letter-spacing: 0.5px;">गैस्ट्रो प्लस हॉस्पिटल</div>
-                  <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 10px; color: #1d4ed8; letter-spacing: 2px; text-transform: uppercase; margin-top: 6px; opacity: 0.9;">Gastro Plus Hospital</div>
+                  <div style="font-family: 'Noto Sans Devanagari', sans-serif; font-weight: 900; font-size: 38px; color: #ef4444; text-shadow: 2px 2px 0px #fff, -2px -2px 0px #fff, 2px -2px 0px #fff, -2px 2px 0px #fff, 3px 3px 5px rgba(0,0,0,0.2); text-transform: uppercase; margin: 0; line-height: 1; letter-spacing: 0.5px;">न्यू गैस्ट्रो प्लस हॉस्पिटल</div>
+                  <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 10px; color: #1d4ed8; letter-spacing: 2px; text-transform: uppercase; margin-top: 6px; opacity: 0.9;">New Gastro Plus Hospital</div>
                 </div>
 
                 <!-- Right: Extra spacing for visual symmetry, or we can put a beautiful caduceus/hospital icon -->

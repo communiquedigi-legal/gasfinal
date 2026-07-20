@@ -691,7 +691,7 @@ export default function EmergencyTriage() {
         <body>
           <div class="header-bar">
             <div>
-              <div class="hospital-name">GASTRO PLUS HOSPITAL</div>
+              <div class="hospital-name">NEW GASTRO PLUS HOSPITAL</div>
               <div style="font-size: 10px; color: #64748b; margin-top: 2px;">24/7 EMERGENCY & TRAUMA CRITICAL CARE UNIT</div>
             </div>
             <div class="badge-triage badge-${c.triageLevel}">Triage level: ${c.triageLevel}</div>

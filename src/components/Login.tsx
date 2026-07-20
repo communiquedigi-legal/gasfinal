@@ -20,9 +20,9 @@ export default function Login({ onLogin }: LoginProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [hospitalInfo] = useState(() => storage.get(STORAGE_KEYS.HOSPITAL_INFO, {
-    name: 'Gastro Plus Hospital',
+    name: 'New Gastro Plus Hospital',
     logo: null
-  }) || { name: 'Gastro Plus Hospital', logo: null });
+  }) || { name: 'New Gastro Plus Hospital', logo: null });
 
   useEffect(() => {
     // Automatically pre-fetch latest staff profiles when the login screen mounts

@@ -86,8 +86,8 @@ export default function Billing() {
   const [loading, setLoading] = useState(true);
   const [templateImage, setTemplateImage] = useState<string | null>(() => storage.get(STORAGE_KEYS.TEMPLATE_IMAGE, null));
   const [hospitalInfo, setHospitalInfo] = useState(() => storage.get(STORAGE_KEYS.HOSPITAL_INFO, {
-    name: 'Gastro Plus Hospital',
-    address: 'Gastro Plus Hospital ,Infront of Aura Inn Bansi Road Basti',
+    name: 'New Gastro Plus Hospital',
+    address: 'New Gastro Plus Hospital ,Infront of Aura Inn Bansi Road Basti',
     phone: '+91 6394517005',
     email: 'info@gastroplushospital.com',
     logo: null as string | null
@@ -1881,7 +1881,7 @@ export default function Billing() {
 
             <div class="footer">
               <div style="color: #94a3b8; font-size: 11px;">This is an electronically generated document. No physical signature required.</div>
-              <div style="font-weight: 700; color: #2563eb; margin-top: 10px;">GASTRO PLUS HOSPITAL GROUP - HEALING HANDS, CARING HEARTS</div>
+              <div style="font-weight: 700; color: #2563eb; margin-top: 10px;">NEW GASTRO PLUS HOSPITAL GROUP - HEALING HANDS, CARING HEARTS</div>
             </div>
           </div>
           

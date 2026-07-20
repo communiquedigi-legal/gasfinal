@@ -292,7 +292,7 @@ export default function UserManual() {
           </div>
           <h1 className="text-2xl font-black text-[#3D275A] tracking-tight flex items-center gap-2">
             <BookOpen className="w-6 h-6 text-[#3D275A]" />
-            Gastro Plus Hospital User Manual
+            New Gastro Plus Hospital User Manual
           </h1>
           <p className="text-[#5D487C] text-xs font-semibold mt-1">
             Complete interactive workflows, module rules, and live reference guidelines for admin, doctors, nurses, and pharmacists.
@@ -539,7 +539,7 @@ export default function UserManual() {
 
       {/* Print Footer Notice */}
       <div className="hidden print:block text-center mt-12 text-[10px] text-slate-400 font-bold border-t border-slate-100 pt-4">
-        <p>© {new Date().getFullYear()} GASTRO PLUS HOSPITAL. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} NEW GASTRO PLUS HOSPITAL. All rights reserved.</p>
         <p className="mt-1">Generated electronically from the hospital dashboard system for helpdesk reference.</p>
       </div>
     </div>

@@ -704,8 +704,8 @@ export default function PharmacyPOS() {
       phone: string;
       logo?: string | null;
     }>(STORAGE_KEYS.HOSPITAL_INFO, {
-      name: 'Gastro Plus Hospital',
-      address: 'Gastro Plus Hospital ,Infront of Aura Inn Bansi Road Basti',
+      name: 'New Gastro Plus Hospital',
+      address: 'New Gastro Plus Hospital ,Infront of Aura Inn Bansi Road Basti',
       phone: '+91 6394517005'
     });
 
@@ -792,7 +792,7 @@ export default function PharmacyPOS() {
           <div class="footer text-center">
             <div>Thank You! Get Well Soon.</div>
             <div>Medicines once sold cannot be returned.</div>
-            <div style="margin-top: 5px;">Powered by Gastro Plus Hospital HMS</div>
+            <div style="margin-top: 5px;">Powered by New Gastro Plus Hospital HMS</div>
           </div>
           
           <script>

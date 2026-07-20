@@ -426,8 +426,8 @@ export default function OPD() {
   const [savedPrescriptions, setSavedPrescriptions] = useState<any[]>(() => storage.get(STORAGE_KEYS.PRESCRIPTIONS, []));
   const [templateImage, setTemplateImage] = useState<string | null>(storage.get(STORAGE_KEYS.TEMPLATE_IMAGE, null));
   const [hospitalInfo, setHospitalInfo] = useState(storage.get(STORAGE_KEYS.HOSPITAL_INFO, {
-    name: 'Gastro Plus Hospital',
-    address: 'Gastro Plus Hospital ,Infront of Aura Inn Bansi Road Basti',
+    name: 'New Gastro Plus Hospital',
+    address: 'New Gastro Plus Hospital ,Infront of Aura Inn Bansi Road Basti',
     phone: '+91 6394517005',
     email: 'info@gastroplushospital.com',
     logo: null as string | null
@@ -2087,7 +2087,7 @@ export default function OPD() {
             <div>
               <div class="header">
                 <div class="hospital-logo">🏥</div>
-                <div class="hospital-name">GASTRO PLUS HOSPITAL</div>
+                <div class="hospital-name">NEW GASTRO PLUS HOSPITAL</div>
                 <div class="sub-title">OPD CLINIC APPOINTMENT SLIP</div>
               </div>
               
@@ -2155,7 +2155,7 @@ export default function OPD() {
         </head>
         <body onload="window.print();">
           <div class="header">
-            <div class="bold hospital-name">GASTRO PLUS HOSPITAL</div>
+            <div class="bold hospital-name">NEW GASTRO PLUS HOSPITAL</div>
             <div style="font-size: 11px; margin-top: 4px; font-weight: bold;">OPD CONSULTATION TOKEN</div>
           </div>
           
@@ -2205,7 +2205,7 @@ export default function OPD() {
         </head>
         <body onload="window.print();">
           <div class="header">
-            <div class="bold" style="font-size: 14px;">GASTRO PLUS HOSPITAL</div>
+            <div class="bold" style="font-size: 14px;">NEW GASTRO PLUS HOSPITAL</div>
             <div>OPD TOKEN</div>
           </div>
           
@@ -2569,7 +2569,7 @@ export default function OPD() {
             <div>
               <div class="header">
                 <div class="hospital-logo">🏥</div>
-                <div class="hospital-name">GASTRO PLUS HOSPITAL</div>
+                <div class="hospital-name">NEW GASTRO PLUS HOSPITAL</div>
                 <div class="sub-title">OPD CLINIC APPOINTMENT SLIP</div>
               </div>
               
@@ -2640,7 +2640,7 @@ export default function OPD() {
         </head>
         <body onload="window.print();">
           <div class="header">
-            <div class="hospital-name">GASTRO PLUS HOSPITAL</div>
+            <div class="hospital-name">NEW GASTRO PLUS HOSPITAL</div>
             <div style="font-size: 11px; margin-top: 4px; font-weight: bold;">OPD CLINIC APPOINTMENT SLIP</div>
           </div>
           <div>
@@ -2679,7 +2679,7 @@ export default function OPD() {
         </head>
         <body onload="window.print();">
           <div class="header">
-            <div class="hospital-name">GASTRO PLUS HOSPITAL</div>
+            <div class="hospital-name">NEW GASTRO PLUS HOSPITAL</div>
             <div style="font-size: 9px; font-weight: bold; margin-top: 2px; color: #444;">OPD CLINIC APPOINTMENT SLIP</div>
           </div>
           <div>

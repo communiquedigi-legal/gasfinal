@@ -69,8 +69,8 @@ export default function Insurance() {
   const [staffList, setStaffList] = useState<any[]>([]);
   const [staffPayables, setStaffPayables] = useState<any[]>([]);
   const [hospitalInfo, setHospitalInfo] = useState<any>({
-    name: 'Gastro Plus Hospital',
-    address: 'Gastro Plus Hospital ,Infront of Aura Inn Bansi Road Basti',
+    name: 'New Gastro Plus Hospital',
+    address: 'New Gastro Plus Hospital ,Infront of Aura Inn Bansi Road Basti',
     phone: '+91 6394517005',
     email: 'info@gastroplushospital.com',
     logo: null
