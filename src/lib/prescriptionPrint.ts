@@ -31,6 +31,9 @@ export interface PrintPrescription {
   advice?: string;
   diagnosis?: string;
   notes?: string;
+  examinationFindings?: string;
+  pastHistory?: string;
+  drawing?: string;
   vitals?: PrintVitals;
 }
 
@@ -111,13 +114,83 @@ export function getPrescriptionPrintHtml(
     }
   }
 
-  const adviceContent = (prescription.advice || prescription.notes || prescription.diagnosis) ? `
-    <div style="margin-top: 30px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
-      <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: #475569; letter-spacing: 0.08em; margin-bottom: 8px;">Clinical Remarks & Advice:</div>
-      <div style="font-size: 13.5px; color: #1e293b; font-weight: 500; line-height: 1.6; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 14px 18px; border-left: 4px solid #0284c7;">
-        ${prescription.diagnosis ? `<div style="font-weight: 800; color: #0f172a; margin-bottom: 6px; font-size: 13.5px;">Diagnosis: ${prescription.diagnosis}</div>` : ''}
-        ${prescription.advice || prescription.notes || ''}
+  let advText = prescription.advice || prescription.notes || '';
+  let examFindings = prescription.examinationFindings || '';
+  let pastHist = prescription.pastHistory || '';
+  let drawImg = prescription.drawing || '';
+  let diag = prescription.diagnosis || '';
+
+  // Try deserializing advice if it's stored as JSON
+  if (typeof advText === 'string' && advText.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(advText);
+      if (parsed && typeof parsed === 'object') {
+        advText = parsed.advice || '';
+        if (parsed.examinationFindings) examFindings = parsed.examinationFindings;
+        if (parsed.pastHistory) pastHist = parsed.pastHistory;
+        if (parsed.drawing) drawImg = parsed.drawing;
+        if (parsed.diagnosis) diag = parsed.diagnosis;
+      }
+    } catch (e) {
+      // Not JSON or parse failed
+    }
+  }
+
+  // Format Diagnosis, Past History, Examination Findings, Advice, and Drawing content
+  let additionalSections = '';
+
+  if (diag) {
+    additionalSections += `
+      <div style="margin-top: 15px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
+        <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: #dc2626; letter-spacing: 0.08em; margin-bottom: 6px;">Diagnosis / Clinical Impression:</div>
+        <div style="font-size: 13.5px; color: #0f172a; font-weight: 700; line-height: 1.5; background: #fef2f2; border: 1.5px solid #fee2e2; border-radius: 8px; padding: 10px 14px; border-left: 4px solid #dc2626;">
+          ${diag}
+        </div>
       </div>
+    `;
+  }
+
+  if (examFindings) {
+    additionalSections += `
+      <div style="margin-top: 15px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
+        <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: #0284c7; letter-spacing: 0.08em; margin-bottom: 6px;">Examination Findings (Clinical/Physical Exam):</div>
+        <div style="font-size: 13px; color: #1e293b; font-weight: 500; line-height: 1.5; background: #f0f9ff; border: 1.5px solid #e0f2fe; border-radius: 8px; padding: 10px 14px; border-left: 4px solid #0284c7; white-space: pre-wrap;">${examFindings}</div>
+      </div>
+    `;
+  }
+
+  if (pastHist) {
+    additionalSections += `
+      <div style="margin-top: 15px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
+        <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: #4b5563; letter-spacing: 0.08em; margin-bottom: 6px;">Past Medical History & Allergies:</div>
+        <div style="font-size: 13px; color: #1e293b; font-weight: 500; line-height: 1.5; background: #f9fafb; border: 1.5px solid #f3f4f6; border-radius: 8px; padding: 10px 14px; border-left: 4px solid #4b5563; white-space: pre-wrap;">${pastHist}</div>
+      </div>
+    `;
+  }
+
+  if (advText) {
+    additionalSections += `
+      <div style="margin-top: 15px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
+        <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: #059669; letter-spacing: 0.08em; margin-bottom: 6px;">Clinical Remarks & Advice:</div>
+        <div style="font-size: 13px; color: #1e293b; font-weight: 500; line-height: 1.5; background: #ecfdf5; border: 1.5px solid #d1fae5; border-radius: 8px; padding: 10px 14px; border-left: 4px solid #059669; white-space: pre-wrap;">${advText}</div>
+      </div>
+    `;
+  }
+
+  if (drawImg) {
+    additionalSections += `
+      <div style="margin-top: 15px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
+        <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: #7c3aed; letter-spacing: 0.08em; margin-bottom: 6px;">Clinical Findings Diagram:</div>
+        <div style="background: #fff; border: 1.5px solid #e9d5ff; border-radius: 8px; padding: 8px; text-align: center; border-left: 4px solid #7c3aed; display: inline-block;">
+          <img src="${drawImg}" style="max-height: 250px; display: block; margin: 0 auto; object-fit: contain;" />
+        </div>
+      </div>
+    `;
+  }
+
+  const adviceContent = additionalSections ? `
+    <div style="margin-top: 25px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
+      ${additionalSections}
     </div>
   ` : '';
 

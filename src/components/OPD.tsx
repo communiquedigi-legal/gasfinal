@@ -22,7 +22,10 @@ import {
   History,
   Eye,
   User,
-  Loader2
+  Loader2,
+  Paintbrush,
+  Eraser,
+  RotateCcw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -74,6 +77,42 @@ const isPatientIdMatch = (id1: any, id2: any): boolean => {
   } catch {
     return false;
   }
+};
+
+const deserializePrescriptionAdvice = (adviceField: string) => {
+  try {
+    if (typeof adviceField === 'string' && adviceField.trim().startsWith('{')) {
+      const data = JSON.parse(adviceField);
+      if (data && typeof data === 'object') {
+        return {
+          advice: data.advice || '',
+          examinationFindings: data.examinationFindings || '',
+          pastHistory: data.pastHistory || '',
+          drawing: data.drawing || '',
+          diagnosis: data.diagnosis || ''
+        };
+      }
+    }
+  } catch (e) {
+    // Falls through
+  }
+  return {
+    advice: adviceField || '',
+    examinationFindings: '',
+    pastHistory: '',
+    drawing: '',
+    diagnosis: ''
+  };
+};
+
+const serializePrescriptionAdvice = (adviceText: string, exam: string, past: string, drawing: string, diagnosis: string) => {
+  return JSON.stringify({
+    advice: adviceText || '',
+    examinationFindings: exam || '',
+    pastHistory: past || '',
+    drawing: drawing || '',
+    diagnosis: diagnosis || ''
+  });
 };
 
 const getLocalDateString = () => {
@@ -410,7 +449,11 @@ export default function OPD() {
     doctor: 'Dr. Rajesh Sharma',
     date: new Date().toISOString().split('T')[0],
     medicines: [{ name: '', dosage: '', frequency: '', duration: '' }],
+    diagnosis: '',
     advice: '',
+    examinationFindings: '',
+    pastHistory: '',
+    drawing: '',
     attachmentUrl: '',
     attachmentName: '',
     vitals: {
@@ -422,6 +465,125 @@ export default function OPD() {
       rr: ''
     }
   });
+
+  // Canvas drawing state and references
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [drawMode, setDrawMode] = useState<'pen' | 'eraser'>('pen');
+  const [penColor, setPenColor] = useState<string>('#1d4ed8'); // Default to medical blue
+  const [lineWidth, setLineWidth] = useState<number>(3);
+
+  // Initialize and load drawing canvas if isPrescriptionOpen changes
+  useEffect(() => {
+    if (!isPrescriptionOpen) return;
+    
+    const timer = setTimeout(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Clear & set defaults
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      if (prescription.drawing) {
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0);
+        };
+        img.src = prescription.drawing;
+      }
+    }, 150); // Small timeout to ensure Dialog is fully rendered in DOM
+
+    return () => clearTimeout(timer);
+  }, [isPrescriptionOpen]);
+
+  const getCoordinates = (e: any) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    
+    let clientX = 0;
+    let clientY = 0;
+    
+    if (e.touches && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else if (e.changedTouches && e.changedTouches.length > 0) {
+      clientX = e.changedTouches[0].clientX;
+      clientY = e.changedTouches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    
+    const x = ((clientX - rect.left) / rect.width) * canvas.width;
+    const y = ((clientY - rect.top) / rect.height) * canvas.height;
+    return { x, y };
+  };
+
+  const startDrawing = (e: any) => {
+    if (e.type === 'touchstart') {
+      // Don't preventDefault so scrolling works on non-canvas elements, but we can prevent it inside canvas
+      e.stopPropagation();
+    }
+    const coords = getCoordinates(e);
+    if (!coords) return;
+    
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    ctx.beginPath();
+    ctx.moveTo(coords.x, coords.y);
+    
+    ctx.strokeStyle = drawMode === 'eraser' ? '#ffffff' : penColor;
+    ctx.lineWidth = drawMode === 'eraser' ? 12 : lineWidth;
+    
+    setIsDrawing(true);
+  };
+
+  const draw = (e: any) => {
+    if (!isDrawing) return;
+    if (e.type === 'touchmove') {
+      e.stopPropagation();
+    }
+    const coords = getCoordinates(e);
+    if (!coords) return;
+    
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    ctx.lineTo(coords.x, coords.y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    if (!isDrawing) return;
+    setIsDrawing(false);
+    saveCanvasToState();
+  };
+
+  const saveCanvasToState = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL('image/png');
+    setPrescription(prev => ({ ...prev, drawing: dataUrl }));
+  };
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setPrescription(prev => ({ ...prev, drawing: '' }));
+  };
 
   const [savedPrescriptions, setSavedPrescriptions] = useState<any[]>(() => storage.get(STORAGE_KEYS.PRESCRIPTIONS, []));
   const [templateImage, setTemplateImage] = useState<string | null>(storage.get(STORAGE_KEYS.TEMPLATE_IMAGE, null));
@@ -650,12 +812,21 @@ export default function OPD() {
       return;
     }
     
+    const serializedAdvice = serializePrescriptionAdvice(
+      prescription.advice,
+      prescription.examinationFindings,
+      prescription.pastHistory,
+      prescription.drawing,
+      prescription.diagnosis
+    );
+
     const newPrescriptionData = {
       patient_id: selectedPatient.id,
       doctor_name: prescription.doctor,
       prescription_date: prescription.date,
       medicines: prescription.medicines,
-      advice: prescription.advice,
+      diagnosis: prescription.diagnosis,
+      advice: serializedAdvice,
       attachment_url: prescription.attachmentUrl,
       attachment_name: prescription.attachmentName
     };
@@ -711,7 +882,11 @@ export default function OPD() {
         doctor: initialDoc,
         date: new Date().toISOString().split('T')[0],
         medicines: [{ name: '', dosage: '', frequency: '', duration: '' }],
+        diagnosis: '',
         advice: '',
+        examinationFindings: '',
+        pastHistory: '',
+        drawing: '',
         attachmentUrl: '',
         attachmentName: '',
         vitals: {
@@ -799,12 +974,17 @@ export default function OPD() {
       .sort((a, b) => new Date(b.date || b.prescription_date || 0).getTime() - new Date(a.date || a.prescription_date || 0).getTime())[0];
 
     if (existingRx) {
+      const unpacked = deserializePrescriptionAdvice(existingRx.advice || existingRx.notes || '');
       setPrescription({
         id: existingRx.id,
         doctor: existingRx.doctor || existingRx.doctor_name || initialDoc,
         date: existingRx.date || existingRx.prescription_date || new Date().toISOString().split('T')[0],
         medicines: existingRx.medicines && existingRx.medicines.length > 0 ? existingRx.medicines : [{ name: '', dosage: '', frequency: '', duration: '' }],
-        advice: existingRx.advice || existingRx.notes || '',
+        diagnosis: existingRx.diagnosis || unpacked.diagnosis || '',
+        advice: unpacked.advice,
+        examinationFindings: unpacked.examinationFindings,
+        pastHistory: unpacked.pastHistory,
+        drawing: unpacked.drawing,
         attachmentUrl: existingRx.attachmentUrl || '',
         attachmentName: existingRx.attachmentName || '',
         vitals: existingRx.vitals || {
@@ -821,7 +1001,11 @@ export default function OPD() {
         doctor: initialDoc,
         date: new Date().toISOString().split('T')[0],
         medicines: [{ name: '', dosage: '', frequency: '', duration: '' }],
+        diagnosis: '',
         advice: '',
+        examinationFindings: '',
+        pastHistory: '',
+        drawing: '',
         attachmentUrl: '',
         attachmentName: '',
         vitals: {
@@ -880,7 +1064,13 @@ export default function OPD() {
       {
         date: prescription.date,
         medicines: prescription.medicines,
-        advice: prescription.advice,
+        advice: serializePrescriptionAdvice(
+          prescription.advice,
+          prescription.examinationFindings,
+          prescription.pastHistory,
+          prescription.drawing,
+          prescription.diagnosis
+        ),
         vitals: activeVitals
       },
       doctor,
@@ -4652,14 +4842,164 @@ export default function OPD() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Advice / Notes</Label>
-                <Input 
-                  disabled={isReceptionist}
-                  placeholder="Any specific instructions..." 
-                  value={prescription.advice}
-                  onChange={(e) => setPrescription({...prescription, advice: e.target.value})}
-                />
+              {/* Clinical Details & Diagrams */}
+              <div className="space-y-4 border-t border-dashed border-slate-200 pt-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="font-bold text-xs uppercase text-slate-700 tracking-wider">Clinical Details & Physical Exam</span>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-slate-600">Diagnosis / Clinical Impression</Label>
+                    <Input 
+                      disabled={isReceptionist}
+                      placeholder="e.g. GERD, Acute Gastroenteritis..." 
+                      value={prescription.diagnosis || ''}
+                      onChange={(e) => setPrescription({...prescription, diagnosis: e.target.value})}
+                      className="bg-white"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-slate-600">Advice / General Remarks</Label>
+                    <textarea 
+                      disabled={isReceptionist}
+                      placeholder="e.g. Avoid spicy food, walk after meals..." 
+                      value={prescription.advice || ''}
+                      onChange={(e) => setPrescription({...prescription, advice: e.target.value})}
+                      rows={2}
+                      className="flex w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[42px] resize-y"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-slate-600">Examination Findings (Clinical Findings)</Label>
+                    <textarea 
+                      disabled={isReceptionist}
+                      placeholder="e.g. Abdomen soft, tenderness in epigastrium..." 
+                      value={prescription.examinationFindings || ''}
+                      onChange={(e) => setPrescription({...prescription, examinationFindings: e.target.value})}
+                      rows={3}
+                      className="flex w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[70px] resize-y"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-slate-600">Past Medical History / Allergies / Previous Treatments</Label>
+                    <textarea 
+                      disabled={isReceptionist}
+                      placeholder="e.g. Known hypertensive for 5 years, penicillin allergy..." 
+                      value={prescription.pastHistory || ''}
+                      onChange={(e) => setPrescription({...prescription, pastHistory: e.target.value})}
+                      rows={3}
+                      className="flex w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[70px] resize-y"
+                    />
+                  </div>
+                </div>
+
+                {/* Drawing Tool Component */}
+                {!isReceptionist && (
+                  <div className="space-y-2 bg-slate-50 border border-slate-200 rounded-xl p-4 mt-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <Label className="text-xs font-bold text-slate-700">Clinical Sketchpad / Diagram</Label>
+                        <span className="text-[10px] text-slate-500">Draw simple lines/sketch of findings on the canvas if needed</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-1">
+                        <Button 
+                          type="button"
+                          variant={drawMode === 'pen' ? 'default' : 'ghost'} 
+                          size="sm" 
+                          onClick={() => setDrawMode('pen')}
+                          className="h-7 px-2.5 text-xs gap-1"
+                        >
+                          <Paintbrush className="w-3.5 h-3.5" />
+                          Pen
+                        </Button>
+                        <Button 
+                          type="button"
+                          variant={drawMode === 'eraser' ? 'default' : 'ghost'} 
+                          size="sm" 
+                          onClick={() => setDrawMode('eraser')}
+                          className="h-7 px-2.5 text-xs gap-1"
+                        >
+                          <Eraser className="w-3.5 h-3.5" />
+                          Eraser
+                        </Button>
+                        <Button 
+                          type="button"
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={clearCanvas}
+                          className="h-7 w-7 text-rose-500"
+                          title="Clear Sketchpad"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 items-center justify-between py-1 border-b border-slate-200/60 mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-500 font-semibold">Pen Color:</span>
+                        <div className="flex items-center gap-1.5">
+                          {['#1d4ed8', '#dc2626', '#059669', '#000000'].map(color => (
+                            <button
+                              key={color}
+                              type="button"
+                              onClick={() => {
+                                setPenColor(color);
+                                setDrawMode('pen');
+                              }}
+                              className={`w-4 h-4 rounded-full border transition ${penColor === color && drawMode === 'pen' ? 'ring-2 ring-offset-1 ring-slate-400 border-transparent scale-110' : 'border-slate-300'}`}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-500 font-semibold">Width:</span>
+                        <input
+                          type="range"
+                          min="1"
+                          max="10"
+                          value={lineWidth}
+                          onChange={(e) => setLineWidth(Number(e.target.value))}
+                          className="w-16 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-700"
+                        />
+                        <span className="text-[10px] font-mono text-slate-600">{lineWidth}px</span>
+                      </div>
+                    </div>
+
+                    <div className="relative border-2 border-dashed border-slate-300 rounded-lg overflow-hidden bg-white shadow-inner flex justify-center">
+                      <canvas
+                        ref={canvasRef}
+                        width={600}
+                        height={240}
+                        onMouseDown={startDrawing}
+                        onMouseMove={draw}
+                        onMouseUp={stopDrawing}
+                        onMouseLeave={stopDrawing}
+                        onTouchStart={startDrawing}
+                        onTouchMove={draw}
+                        onTouchEnd={stopDrawing}
+                        className="w-full max-w-full h-[240px] bg-transparent block touch-none cursor-crosshair"
+                      />
+                    </div>
+                  </div>
+                )}
+                {isReceptionist && prescription.drawing && (
+                  <div className="space-y-2 bg-slate-50 border border-slate-200 rounded-xl p-4 mt-2">
+                    <Label className="text-xs font-bold text-slate-700 block">Clinical Sketch / Diagram</Label>
+                    <div className="border border-slate-200 rounded bg-white p-2 flex justify-center">
+                      <img src={prescription.drawing} alt="Clinical findings drawing" className="max-h-48 object-contain" />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Patient Vitals Entry Option */}
