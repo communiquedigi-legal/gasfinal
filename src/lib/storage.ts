@@ -262,4 +262,5 @@ export const STORAGE_KEYS = {
   TOKEN_PRINT_SIZE: 'hms_token_print_size',
   EQUIPMENT: 'hms_equipment',
   BREAKDOWNS: 'hms_breakdowns',
+  PRESCRIPTION_TEMPLATES: 'hms_prescription_templates',
 };

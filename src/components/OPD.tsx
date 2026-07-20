@@ -25,7 +25,9 @@ import {
   Loader2,
   Paintbrush,
   Eraser,
-  RotateCcw
+  RotateCcw,
+  BookOpen,
+  Save
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -196,6 +198,61 @@ const fallbackToPopup = (htmlContent: string, width = 800, height = 1000) => {
   toast.error('Printing failed. Please allow popups or open this page in a new tab.');
   return false;
 };
+
+const DEFAULT_PRESCRIPTION_TEMPLATES = [
+  {
+    id: 'tpl-gerd',
+    name: 'GERD & Acid Reflux Protocol',
+    diagnosis: 'Gastroesophageal Reflux Disease (GERD) with Mild Esophagitis',
+    advice: '1. Avoid spicy, fried, citrus, and oily foods.\n2. Do not lie down immediately after meals; maintain an upright position for at least 2 hours.\n3. Eat smaller, more frequent meals instead of heavy ones.\n4. Avoid caffeine, carbonated drinks, and smoking.\n5. Walk for 15-20 minutes after dinner.',
+    examinationFindings: 'Abdomen soft, non-distended. Mild epigastric tenderness present on deep palpation. Normal bowel sounds. No organomegaly.',
+    pastHistory: 'No known allergies. History of occasional indigestion.',
+    medicines: [
+      { name: 'Tab. Pantoprazole 40mg', dosage: '1 tablet', frequency: 'Once daily (Before Breakfast)', duration: '14 Days' },
+      { name: 'Tab. Domperidone 10mg', dosage: '1 tablet', frequency: 'Twice daily (30 mins before Lunch & Dinner)', duration: '10 Days' },
+      { name: 'Syr. Sucralfate (10ml)', dosage: '2 teaspoons', frequency: 'Thrice daily (Between meals & at bedtime)', duration: '7 Days' }
+    ]
+  },
+  {
+    id: 'tpl-gastro',
+    name: 'Acute Gastroenteritis / Diarrhea',
+    diagnosis: 'Acute Gastroenteritis with Mild Dehydration',
+    advice: '1. Maintain high fluid intake with ORS (Oral Rehydration Salts) - drink 200ml after each loose motion.\n2. Restrict diet to light, bland foods (Khichdi, Curd Rice, Banana, Apple Sauce, Toast).\n3. Avoid milk, dairy, spicy food, raw salads, and juices for 48 hours.\n4. Hand hygiene is critical: wash hands thoroughly before meals.',
+    examinationFindings: 'Patient alert, mild dry tongue. Abdomen soft with diffuse mild colicky tenderness. No rigidity or guarding. Bowel sounds hyperactive.',
+    pastHistory: 'No chronic illness. No drug allergies.',
+    medicines: [
+      { name: 'Cap. Racecadotril 100mg', dosage: '1 capsule', frequency: 'Thrice daily (Before meals)', duration: '3 Days' },
+      { name: 'Tab. Ofloxacin 200mg + Ornidazole 500mg', dosage: '1 tablet', frequency: 'Twice daily (After breakfast & dinner)', duration: '5 Days' },
+      { name: 'Oral Rehydration Salts (ORS)', dosage: '1 sachet in 1L water', frequency: 'On-going (Sip throughout the day)', duration: '3 Days' },
+      { name: 'Tab. Zinc Sulphate 20mg', dosage: '1 tablet', frequency: 'Once daily (After lunch)', duration: '14 Days' }
+    ]
+  },
+  {
+    id: 'tpl-htn',
+    name: 'Essential Hypertension Control',
+    diagnosis: 'Essential Hypertension - Stage 1 (Newly Diagnosed)',
+    advice: '1. Strict low-salt diet (restrict intake to less than 3 grams per day).\n2. Engage in moderate aerobic exercise (brisk walking) for at least 30-40 minutes daily.\n3. Keep a daily blood pressure record (morning and evening).\n4. Reduce stress through yoga or meditation.\n5. Avoid high-fat and cholesterol-rich food.',
+    examinationFindings: 'Pulse: 76 bpm (regular, good volume). BP: 148/92 mmHg. Bilateral lungs clear. S1, S2 normal, no murmurs.',
+    pastHistory: 'Father is hypertensive. No history of diabetes or asthma.',
+    medicines: [
+      { name: 'Tab. Telmisartan 40mg', dosage: '1 tablet', frequency: 'Once daily (After breakfast)', duration: '30 Days' },
+      { name: 'Tab. Amlodipine 5mg', dosage: '1 tablet', frequency: 'Once daily (At bedtime, if BP remains > 140/90)', duration: '30 Days' }
+    ]
+  },
+  {
+    id: 'tpl-cold',
+    name: 'Upper Respiratory Infection / Flu',
+    diagnosis: 'Acute Upper Respiratory Tract Infection (Viral Coryza)',
+    advice: '1. Do warm saline gargles 3-4 times a day.\n2. Take steam inhalation twice daily.\n3. Drink plenty of warm fluids (herbal tea, warm water, soups).\n4. Rest is recommended for optimal recovery.\n5. Avoid exposure to cold air and chilled beverages.',
+    examinationFindings: 'Pharyngeal congestion present (+). Congested nasal mucosa. Chest clear with vesicular breath sounds. No wheezing/crepitations.',
+    pastHistory: 'No asthma or drug allergies.',
+    medicines: [
+      { name: 'Tab. Paracetamol 650mg', dosage: '1 tablet', frequency: 'Thrice daily (SOS for fever or body ache)', duration: '5 Days' },
+      { name: 'Tab. Montelukast 10mg + Levocetirizine 5mg', dosage: '1 tablet', frequency: 'Once daily (At Bedtime)', duration: '5 Days' },
+      { name: 'Nasal Xylometazoline Drops 0.1%', dosage: '2 drops in each nostril', frequency: 'Twice daily (Maximum 5 days)', duration: '3 Days' }
+    ]
+  }
+];
 
 export default function OPD() {
   const navigate = useNavigate();
@@ -419,6 +476,7 @@ export default function OPD() {
   }, [appointments]);
 
   const [isPrescriptionOpen, setIsPrescriptionOpen] = useState(false);
+  const [isManageTemplatesOpen, setIsManageTemplatesOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -586,6 +644,66 @@ export default function OPD() {
   };
 
   const [savedPrescriptions, setSavedPrescriptions] = useState<any[]>(() => storage.get(STORAGE_KEYS.PRESCRIPTIONS, []));
+  const [prescriptionTemplates, setPrescriptionTemplates] = useState<any[]>(() => {
+    const saved = storage.get(STORAGE_KEYS.PRESCRIPTION_TEMPLATES, []);
+    if (saved.length === 0) {
+      storage.set(STORAGE_KEYS.PRESCRIPTION_TEMPLATES, DEFAULT_PRESCRIPTION_TEMPLATES);
+      return DEFAULT_PRESCRIPTION_TEMPLATES;
+    }
+    return saved;
+  });
+
+  const handleLoadTemplate = (templateId: string) => {
+    const tpl = prescriptionTemplates.find(t => t.id === templateId);
+    if (!tpl) return;
+    
+    setPrescription(prev => ({
+      ...prev,
+      diagnosis: tpl.diagnosis || '',
+      advice: tpl.advice || '',
+      examinationFindings: tpl.examinationFindings || '',
+      pastHistory: tpl.pastHistory || '',
+      medicines: tpl.medicines && tpl.medicines.length > 0 
+        ? tpl.medicines.map((m: any) => ({
+            name: m.name || '',
+            dosage: m.dosage || '',
+            frequency: m.frequency || '',
+            duration: m.duration || ''
+          }))
+        : [{ name: '', dosage: '', frequency: '', duration: '' }]
+    }));
+    
+    toast.success(`Prescription template "${tpl.name}" loaded successfully!`);
+  };
+
+  const handleSaveAsTemplate = (name: string) => {
+    const newTpl = {
+      id: `tpl-${Date.now()}`,
+      name: name,
+      diagnosis: prescription.diagnosis || '',
+      advice: prescription.advice || '',
+      examinationFindings: prescription.examinationFindings || '',
+      pastHistory: prescription.pastHistory || '',
+      medicines: prescription.medicines.filter(m => m.name.trim() !== '')
+    };
+
+    const updated = [...prescriptionTemplates, newTpl];
+    setPrescriptionTemplates(updated);
+    storage.set(STORAGE_KEYS.PRESCRIPTION_TEMPLATES, updated);
+    toast.success(`Saved new template "${name}"!`);
+  };
+
+  const handleDeleteTemplate = (id: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    const updated = prescriptionTemplates.filter(t => t.id !== id);
+    setPrescriptionTemplates(updated);
+    storage.set(STORAGE_KEYS.PRESCRIPTION_TEMPLATES, updated);
+    toast.success("Template deleted successfully.");
+  };
+
   const [templateImage, setTemplateImage] = useState<string | null>(storage.get(STORAGE_KEYS.TEMPLATE_IMAGE, null));
   const [hospitalInfo, setHospitalInfo] = useState(storage.get(STORAGE_KEYS.HOSPITAL_INFO, {
     name: 'New Gastro Plus Hospital',
@@ -4778,6 +4896,61 @@ export default function OPD() {
                 </div>
               </div>
 
+              {/* Prescription Templates Section */}
+              {!isReceptionist && (
+                <div className="bg-emerald-50/55 border border-emerald-100 rounded-xl p-4 space-y-3 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="font-extrabold text-xs text-emerald-800 flex items-center gap-1.5 uppercase tracking-wider">
+                        <BookOpen className="w-4 h-4 text-emerald-600" />
+                        Prescription Templates
+                      </span>
+                      <span className="text-[10px] text-emerald-600/80 font-medium">Quick-load pre-filled clinical profiles & formulas</span>
+                    </div>
+                    <Button 
+                      variant="link" 
+                      onClick={() => setIsManageTemplatesOpen(true)} 
+                      className="text-xs text-emerald-700 font-bold hover:text-emerald-900 h-auto p-0"
+                    >
+                      Manage ({prescriptionTemplates.length})
+                    </Button>
+                  </div>
+                  
+                  <div className="flex gap-2 items-center">
+                    <div className="flex-1">
+                      <Select onValueChange={(val) => handleLoadTemplate(val as string)}>
+                        <SelectTrigger className="bg-white border-emerald-200 focus:ring-emerald-500">
+                          <SelectValue placeholder="-- Select Prescription Template --" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white">
+                          {prescriptionTemplates.map((tpl) => (
+                            <SelectItem key={tpl.id} value={tpl.id} className="cursor-pointer">
+                              {tpl.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <Button 
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const name = prompt("Enter a name for this prescription template:");
+                        if (name && name.trim()) {
+                          handleSaveAsTemplate(name.trim());
+                        }
+                      }}
+                      className="gap-1.5 bg-white hover:bg-emerald-50 border-emerald-200 text-emerald-700 shrink-0 h-9 font-semibold text-xs"
+                    >
+                      <Save className="w-3.5 h-3.5 text-emerald-600" />
+                      Save Current
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <Label className="text-base font-bold">Medicines</Label>
@@ -5169,6 +5342,99 @@ export default function OPD() {
             <Button className="bg-emerald-600 hover:bg-emerald-700 gap-2" onClick={handleSavePrescription}>
               <CheckCircle2 className="w-4 h-4" />
               {isReceptionist ? 'Save Vitals Only' : 'Save Prescription'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Prescription Templates Dialog */}
+      <Dialog open={isManageTemplatesOpen} onOpenChange={setIsManageTemplatesOpen}>
+        <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto bg-white">
+          <DialogHeader className="border-b pb-3 mb-2">
+            <DialogTitle className="flex items-center gap-2 text-emerald-800">
+              <BookOpen className="w-5 h-5 text-emerald-600" />
+              Manage Prescription Templates
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <p className="text-xs text-slate-500">
+              Below are the standard clinical templates and custom templates you have created. You can use these to instantly fill medicines, diagnoses, advice, and findings when writing prescriptions.
+            </p>
+
+            <div className="space-y-3">
+              {prescriptionTemplates.map((tpl) => {
+                const isDefault = ['tpl-gerd', 'tpl-gastro', 'tpl-htn', 'tpl-cold'].includes(tpl.id);
+                return (
+                  <div key={tpl.id} className="border border-slate-200 rounded-lg p-4 space-y-3 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-sm text-slate-800">{tpl.name}</h4>
+                          <Badge variant="secondary" className={isDefault ? "bg-blue-50 text-blue-700 border-blue-100 text-[10px] font-bold" : "bg-emerald-50 text-emerald-700 border-emerald-100 text-[10px] font-bold"}>
+                            {isDefault ? "Standard Protocol" : "Custom Template"}
+                          </Badge>
+                        </div>
+                        {tpl.diagnosis && (
+                          <p className="text-xs text-slate-600">
+                            <span className="font-semibold text-slate-700">Diagnosis:</span> {tpl.diagnosis}
+                          </p>
+                        )}
+                      </div>
+
+                      {!isDefault && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={(e) => handleDeleteTemplate(tpl.id, e)}
+                          className="h-8 w-8 text-rose-500 hover:text-rose-700 hover:bg-rose-50 shrink-0"
+                          title="Delete Template"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-slate-200/60 text-xs">
+                      <div>
+                        <span className="font-bold text-[11px] text-slate-700 uppercase tracking-wider block mb-1">Medicines ({tpl.medicines?.length || 0})</span>
+                        <ul className="list-disc pl-4 space-y-1 text-slate-600">
+                          {tpl.medicines && tpl.medicines.map((m: any, i: number) => (
+                            <li key={i}>
+                              <span className="font-semibold text-slate-800">{m.name}</span> - {m.dosage} ({m.frequency} / {m.duration})
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <span className="font-bold text-[11px] text-slate-700 uppercase tracking-wider block mb-1">Advice & Findings</span>
+                        <p className="text-slate-600 line-clamp-3 text-justify">
+                          {tpl.advice || "No specific advice entered."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <Button 
+                        size="sm" 
+                        onClick={() => {
+                          handleLoadTemplate(tpl.id);
+                          setIsManageTemplatesOpen(false);
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-xs h-8 font-semibold"
+                      >
+                        Load This Template
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <DialogFooter className="border-t pt-3">
+            <Button variant="outline" onClick={() => setIsManageTemplatesOpen(false)} className="text-xs">
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
