@@ -60,6 +60,9 @@ const isPatientIdMatch = (id1: any, id2: any): boolean => {
 import { getPathologyReportHtml, getRadiologyReportHtml, getMaternityReportHtml } from '@/lib/reportPrint';
 import { getPatientReportHtml } from '@/lib/patientReportPrint';
 import { normalizeRole } from '@/utils/rbac';
+import OTConsentManagement from './OTConsentManagement';
+import SurgicalSafetyChecklist from './SurgicalSafetyChecklist';
+import { ClipboardCheck } from 'lucide-react';
 import { 
   Dialog, 
   DialogContent, 
@@ -177,6 +180,26 @@ export default function PatientOverview({ userRole }: { userRole?: string }) {
     }
   });
   const [uploadedFile, setUploadedFile] = useState<{name: string, url: string} | null>(null);
+
+  const [isConsentOpen, setIsConsentOpen] = useState(false);
+  const [isSurgicalChecklistOpen, setIsSurgicalChecklistOpen] = useState(false);
+
+  const activeOTRecord = useMemo(() => {
+    if (!selectedPatient) return null;
+    const schedules = storage.get('hms_ot_schedules', []);
+    const patientSchedules = schedules.filter((s: any) => String(s.patientId) === String(selectedPatient.id));
+    if (patientSchedules.length > 0) {
+      return patientSchedules[0];
+    }
+    return {
+      id: `ot-manual-${selectedPatient.id}`,
+      patientId: selectedPatient.id,
+      operationName: 'General Surgical Procedure',
+      surgeonName: currentUser?.name || 'Assigned Surgeon',
+      startTime: 'Clinical Audit',
+      scheduled_date: 'Today'
+    };
+  }, [selectedPatient, currentUser]);
 
   const isFinancialVisible = true;
   const setLoading = setIsLoading;
@@ -1315,6 +1338,14 @@ View full details at: ${shareUrl}
               Blank Prescription
             </Button>
           )}
+          <Button variant="outline" className="gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-semibold text-xs h-9" onClick={() => setIsConsentOpen(true)}>
+            <FileText className="w-4 h-4" />
+            Clinical Consents
+          </Button>
+          <Button variant="outline" className="gap-2 border-indigo-300 text-indigo-700 hover:bg-indigo-50 font-semibold text-xs h-9" onClick={() => setIsSurgicalChecklistOpen(true)}>
+            <ClipboardCheck className="w-4 h-4" />
+            Surgical Checklist
+          </Button>
           <Button variant="outline" className="gap-2" onClick={handlePrintPatient360Report}>
             <Printer className="w-4 h-4" />
             Print Report
@@ -2804,6 +2835,56 @@ View full details at: ${shareUrl}
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* OT Consent Management Modal for Selected Patient */}
+      <Dialog open={isConsentOpen} onOpenChange={setIsConsentOpen}>
+        <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto bg-white p-6 rounded-2xl shadow-2xl border-none">
+          <DialogHeader className="pb-3 border-b border-slate-100">
+            <DialogTitle className="text-xl font-black text-slate-800 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-emerald-600" />
+              Patient Informed Consents: {selectedPatient?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <OTConsentManagement patientId={selectedPatient?.id} />
+          </div>
+          <DialogFooter className="pt-3 border-t border-slate-100">
+            <Button variant="outline" className="text-xs h-9 font-bold" onClick={() => setIsConsentOpen(false)}>Close Consent Panel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* WHO Surgical Safety Checklist Modal for Selected Patient */}
+      <Dialog open={isSurgicalChecklistOpen} onOpenChange={setIsSurgicalChecklistOpen}>
+        <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto bg-white p-0 rounded-2xl shadow-2xl overflow-hidden border-none text-slate-800">
+          <div className="p-6 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+            <div className="space-y-1 text-left">
+              <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                <ClipboardCheck className="w-5 h-5 text-indigo-600" />
+                WHO Surgical Safety Checklist
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">Verify pre-incision protocols, anesthesia safety checks, and surgical markings.</p>
+            </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setIsSurgicalChecklistOpen(false)}>
+              <Plus className="w-4 h-4 rotate-45" />
+            </Button>
+          </div>
+          <div className="p-6">
+            {activeOTRecord ? (
+              <SurgicalSafetyChecklist 
+                record={activeOTRecord} 
+                patient={selectedPatient} 
+                onClose={() => setIsSurgicalChecklistOpen(false)}
+              />
+            ) : (
+              <div className="text-center py-12 text-slate-400">
+                <AlertCircle className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                No active surgical record available for checklist audit.
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

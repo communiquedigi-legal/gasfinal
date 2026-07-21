@@ -14,7 +14,9 @@ import {
   AlertTriangle,
   FileCheck2,
   Lock,
-  ChevronRight
+  ChevronRight,
+  ClipboardCheck,
+  FileSignature
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +26,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { storage } from '@/lib/storage';
 import { supabaseService } from '@/services/supabaseService';
@@ -36,11 +39,11 @@ const CONSENT_TEMPLATES: Record<string, { title: string; text: string }> = {
   },
   'Surgery': {
     title: 'Informed Surgical Procedure Consent',
-    text: `1. AUTHORIZATION OF PROCEDURE: I authorize the primary surgeon and their assistants to perform the scheduled surgical operation on me. The nature, purpose, and visual scope of the surgery have been explained to me in detail.\n\n2. SURGICAL RISKS: I recognize that all surgical procedures carry inherent risks, including but not limited to severe hemorrhage, post-operative infection, scarring, adjacent organ injury, or cardiac event. No guarantee has been made regarding the absolute outcome of the surgery.\n\n3. EMERGENCY CLINICAL ALTERATIONS: If during the course of the surgery any unforeseen conditions arise requiring immediate actions, I authorize the surgical team to perform whatever procedures are medically necessary to save my life.`
+    text: `1. AUTHORIZATION OF PROCEDURE: I authorize the primary surgeon and their assistants to perform the scheduled surgical operation on me. The nature, purpose, and scope of the surgery have been explained to me in detail.\n\n2. SURGICAL RISKS: I recognize that all surgical procedures carry inherent risks, including but not limited to severe hemorrhage, post-operative infection, scarring, adjacent organ injury, or cardiac event. No guarantee has been made regarding the absolute outcome of the surgery.\n\n3. EMERGENCY CLINICAL ALTERATIONS: If during the course of the surgery any unforeseen conditions arise requiring immediate actions, I authorize the surgical team to perform whatever procedures are medically necessary to save my life.`
   },
   'Anaesthesia': {
-    title: 'Anesthesia Administration Informed Consent',
-    text: `1. ANESTHETIC OPTIONS: I authorize the anesthesiology team to administer General, Spinal, Epidural, Regional, or Monitored Anesthesia Care (MAC) as deemed appropriate for my scheduled surgical procedure.\n\n2. KNOWN SIDE EFFECTS & COMPLICATIONS: I am aware that anesthesia carries potential complications, ranging from mild side effects (nausea, vomiting, sore throat, shivering, headache) to extremely rare but severe life-threatening events (malignant hyperthermia, anaphylaxis, permanent nerve injury, respiratory failure, or stroke).\n\n3. PRE-OP DISCLOSURE: I certify that I have fully disclosed my medical history, current medications, allergies, and fasting (nil-by-mouth) status to the anesthesiologist.`
+    title: 'Consent for Anaesthesia Services',
+    text: `I hereby authorize the anesthesiology team to administer the selected anesthesia techniques (General, Spinal, Epidural, Regional, or Monitored Anesthesia Care) for my scheduled surgery. The techniques, expected results, and risks (such as sore throat, headaches, dental injury, nerve block issues, and extremely rare cardiac/respiratory complications) have been discussed with me.`
   },
   'Blood Transfusion': {
     title: 'Blood and Blood Product Transfusion Consent',
@@ -62,7 +65,11 @@ const INITIAL_CONSENTS: OTConsent[] = [
   { id: 'ct-3', patientId: 'p3', type: 'Anaesthesia', terms: CONSENT_TEMPLATES['Anaesthesia'].text, patientName: 'Rajesh Kumar', guardianName: 'Meena Kumar', witnessName: 'Dr. Alok Verma', signedAt: '2026-07-03T08:15:00Z', signatureType: 'Typed', signatureData: 'Rajesh Kumar', status: 'Signed' }
 ];
 
-export default function OTConsentManagement() {
+interface OTConsentManagementProps {
+  patientId?: string;
+}
+
+export default function OTConsentManagement({ patientId }: OTConsentManagementProps = {}) {
   const [consents, setConsents] = useState<OTConsent[]>([]);
   const [patients, setPatients] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -86,6 +93,19 @@ export default function OTConsentManagement() {
     status: 'Signed' as OTConsent['status']
   });
 
+  // Custom Anaesthesia Options
+  const [anaesthesiaOptions, setAnaesthesiaOptions] = useState({
+    general: false,
+    spinalEpidural: false,
+    spinalEpiduralWithSedation: false,
+    nerveBlock: false,
+    nerveBlockWithSedation: false,
+    regional: false,
+    regionalWithSedation: false,
+    macWithSedation: false,
+    macWithoutSedation: false
+  });
+
   useEffect(() => {
     const fetchConsentsAndPatients = async () => {
       // Load consents
@@ -104,16 +124,29 @@ export default function OTConsentManagement() {
   }, []);
 
   const handleOpenAdd = () => {
-    setPatientSearch('');
+    // If patientId is specified, find the patient and pre-select
+    const preselectedPat = patientId ? patients.find(p => p.id === patientId) : null;
+    setPatientSearch(preselectedPat ? preselectedPat.name : '');
     setFormData({
-      patientId: '',
-      patientName: '',
+      patientId: patientId || '',
+      patientName: preselectedPat ? preselectedPat.name : '',
       type: 'General',
       terms: CONSENT_TEMPLATES['General'].text,
       guardianName: '',
       witnessName: '',
       signatureData: '',
       status: 'Signed'
+    });
+    setAnaesthesiaOptions({
+      general: false,
+      spinalEpidural: false,
+      spinalEpiduralWithSedation: false,
+      nerveBlock: false,
+      nerveBlockWithSedation: false,
+      regional: false,
+      regionalWithSedation: false,
+      macWithSedation: false,
+      macWithoutSedation: false
     });
     setIsAddOpen(true);
   };
@@ -143,19 +176,28 @@ export default function OTConsentManagement() {
       return;
     }
     if (!formData.signatureData) {
-      toast.error('Patient or Guardian Signature is required to authorize the consent.');
+      toast.error('Patient or Guardian Signature is required.');
       return;
     }
     if (!formData.witnessName) {
-      toast.error('Witness Name is required.');
+      toast.error('Witness / Staff Name is required.');
       return;
+    }
+
+    // Include anesthesia selections in terms if type is Anaesthesia
+    let termsToSave = formData.terms;
+    if (formData.type === 'Anaesthesia') {
+      termsToSave = JSON.stringify({
+        baseTerms: formData.terms,
+        selections: anaesthesiaOptions
+      });
     }
 
     const newConsent: OTConsent = {
       id: `ct-${Date.now()}`,
       patientId: formData.patientId,
       type: formData.type,
-      terms: formData.terms,
+      terms: termsToSave,
       patientName: formData.patientName,
       guardianName: formData.guardianName || undefined,
       witnessName: formData.witnessName,
@@ -168,7 +210,7 @@ export default function OTConsentManagement() {
     const saved = await supabaseService.createOTConsent(newConsent);
     if (saved) {
       setConsents(prev => [saved, ...prev]);
-      toast.success('Informed clinical consent signed and archived successfully');
+      toast.success('Clinical consent signed and archived successfully!');
       setIsAddOpen(false);
     } else {
       toast.error('Failed to archive consent');
@@ -176,7 +218,7 @@ export default function OTConsentManagement() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete/revoke this consent form from archives?')) {
+    if (confirm('Are you sure you want to delete/revoke this consent form?')) {
       const success = await supabaseService.deleteOTConsent(id);
       if (success) {
         setConsents(prev => prev.filter(c => c.id !== id));
@@ -187,7 +229,7 @@ export default function OTConsentManagement() {
     }
   };
 
-  const handlePrint = (consent: OTConsent) => {
+  const handlePrint = (consent: OTConsent, printBlank = false) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       toast.error('Failed to open print layout. Please disable popup blockers.');
@@ -195,61 +237,175 @@ export default function OTConsentManagement() {
     }
 
     const patientDetails = patients.find(p => p.id === consent.patientId) || { mrn: 'N/A', age: 'N/A', gender: 'N/A', phone: 'N/A' };
-    const dateFormatted = new Date(consent.signedAt).toLocaleString();
+    const dateFormatted = printBlank ? '____________________' : new Date(consent.signedAt).toLocaleString();
+
+    // Parse options if Anesthesia
+    let isAnesthesia = consent.type === 'Anaesthesia';
+    let options = {
+      general: false,
+      spinalEpidural: false,
+      spinalEpiduralWithSedation: false,
+      nerveBlock: false,
+      nerveBlockWithSedation: false,
+      regional: false,
+      regionalWithSedation: false,
+      macWithSedation: false,
+      macWithoutSedation: false
+    };
+
+    let baseTerms = consent.terms;
+
+    if (isAnesthesia && !printBlank) {
+      try {
+        const parsed = JSON.parse(consent.terms);
+        if (parsed && parsed.selections) {
+          options = parsed.selections;
+          baseTerms = parsed.baseTerms;
+        }
+      } catch {
+        // Fallback if not json
+      }
+    }
+
+    const box = (checked: boolean) => `
+      <span style="display:inline-block; width:12px; height:12px; border:1px solid #000; text-align:center; line-height:10px; font-size:10px; font-weight:bold; font-family: monospace; margin-right:6px; vertical-align:middle;">
+        ${checked ? '✓' : '&nbsp;'}
+      </span>
+    `;
 
     printWindow.document.write(`
       <html>
         <head>
-          <title>Consent Form - ${consent.type}</title>
+          <title>Consent Form - ${consent.type} - ${printBlank ? 'Blank' : consent.patientName}</title>
           <style>
-            body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 40px; color: #333; line-height: 1.6; }
-            .header { text-align: center; border-bottom: 3px double #1A5E63; padding-bottom: 20px; margin-bottom: 30px; }
-            .header h1 { color: #1A5E63; margin: 0; font-size: 26px; font-weight: bold; }
-            .header p { margin: 5px 0 0 0; color: #666; font-size: 13px; }
-            .title { text-align: center; font-size: 18px; font-weight: bold; text-transform: uppercase; margin: 20px 0; color: #111; letter-spacing: 0.5px; }
-            .patient-box { border: 1px solid #ccc; background-color: #fcfcfc; padding: 15px; border-radius: 8px; margin-bottom: 25px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px; }
-            .patient-box div span { font-weight: bold; color: #111; }
-            .terms-box { border: 1px solid #e0e0e0; padding: 20px; font-size: 14px; background: #fff; border-radius: 8px; white-space: pre-wrap; margin-bottom: 35px; color: #444; }
-            .signature-section { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 50px; font-size: 14px; page-break-inside: avoid; }
-            .sig-block { border-top: 1px solid #999; padding-top: 10px; text-align: center; }
-            .sig-block p { margin: 5px 0; }
-            .sig-data { font-family: 'Georgia', serif; font-style: italic; font-size: 20px; color: #1A5E63; margin: 15px 0; }
-            .footer { margin-top: 60px; font-size: 11px; text-align: center; border-top: 1px solid #eee; padding-top: 15px; color: #999; }
+            body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 30px; color: #111; line-height: 1.5; font-size: 11px; }
+            .header { text-align: center; border-bottom: 3px double #1A5E63; padding-bottom: 12px; margin-bottom: 20px; }
+            .header h1 { color: #1A5E63; margin: 0; font-size: 22px; font-weight: black; text-transform: uppercase; }
+            .header p { margin: 4px 0 0 0; color: #555; font-size: 11px; }
+            .title { text-align: center; font-size: 15px; font-weight: bold; text-transform: uppercase; margin: 15px 0; color: #000; letter-spacing: 0.5px; }
+            .patient-box { border: 1px solid #ccc; background-color: #fafafa; padding: 10px; border-radius: 4px; margin-bottom: 20px; font-size: 11px; }
+            .patient-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+            .patient-grid div span { font-weight: bold; }
+            .terms-box { font-size: 11px; background: #fff; margin-bottom: 25px; color: #222; text-align: justify; }
+            
+            .anesthesia-table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 20px; font-size: 10px; }
+            .anesthesia-table th, .anesthesia-table td { border: 1px solid #666; padding: 6px; text-align: left; vertical-align: top; }
+            .anesthesia-table th { background-color: #f2f2f2; font-weight: bold; text-transform: uppercase; }
+            
+            .signature-section { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 40px; font-size: 11px; page-break-inside: avoid; }
+            .sig-block { border-top: 1px dashed #999; padding-top: 8px; text-align: left; }
+            .sig-block p { margin: 4px 0; }
+            .sig-data { font-family: 'Georgia', serif; font-style: italic; font-size: 15px; color: #1A5E63; margin: 10px 0; height: 25px; }
+            .footer { margin-top: 40px; font-size: 9px; text-align: center; border-top: 1px solid #eee; padding-top: 10px; color: #777; }
           </style>
         </head>
         <body>
           <div class="header">
             <h1>GASTROPLUS MULTISPECIALITY HOSPITAL</h1>
-            <p>Plot No. 12, Healthcare Sector, Tech City • Tel: +91 98765 43210 • Email: info@gastroplus.com</p>
+            <p>Gastro Plus Hospital, Plot No. 7 & 8, Om Shiv Nagar, Gufa Mandir Road, Lal Ghati Bhopal - 462030</p>
           </div>
-          <div class="title">${CONSENT_TEMPLATES[consent.type]?.title || consent.type + ' Consent'}</div>
+          
+          <div class="title">${isAnesthesia ? 'Consent for Anaesthesia Services' : CONSENT_TEMPLATES[consent.type]?.title || consent.type + ' Consent'}</div>
           
           <div class="patient-box">
-            <div><span>Patient Name:</span> ${consent.patientName}</div>
-            <div><span>MRN:</span> ${patientDetails.mrn}</div>
-            <div><span>Age / Gender:</span> ${patientDetails.age} Yrs / ${patientDetails.gender}</div>
-            <div><span>Signed Date & Time:</span> ${dateFormatted}</div>
+            <div class="patient-grid">
+              <div><span>Patient Name:</span> ${printBlank ? '________________________________________' : consent.patientName}</div>
+              <div><span>UHID No / MRN:</span> ${printBlank ? '____________________' : patientDetails.mrn}</div>
+              <div><span>Age / Gender:</span> ${printBlank ? '________ / ________' : (patientDetails.age + ' Yrs / ' + patientDetails.gender)}</div>
+              <div><span>Signed Date & Time:</span> ${dateFormatted}</div>
+            </div>
           </div>
 
           <div class="terms-box">
-            ${consent.terms}
+            ${isAnesthesia ? `
+              <p>I consent to the administration of anaesthesia services checked below to be administered by Dr. Navodita Tiwari or other credentialed members of the Anaesthesiology department for my scheduled procedure.</p>
+              
+              <table class="anesthesia-table">
+                <thead>
+                  <tr>
+                    <th style="width: 10%; text-align: center;">Select</th>
+                    <th style="width: 25%;">Technique</th>
+                    <th style="width: 30%;">Expected Result</th>
+                    <th style="width: 35%;">Typical Risks & Complications</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style="text-align: center;">${box(options.general)}</td>
+                    <td><strong>GENERAL ANAESTHESIA</strong></td>
+                    <td>Total unconscious state, airway support, mechanical ventilation.</td>
+                    <td>Sore throat, hoarseness, nausea/vomiting, shivering, tooth/lip injury, very rare brain/heart risk.</td>
+                  </tr>
+                  <tr>
+                    <td style="text-align: center;">
+                      ${box(options.spinalEpidural)} Spinal<br/>
+                      ${box(options.spinalEpiduralWithSedation)} With Sedation
+                    </td>
+                    <td><strong>SPINAL OR EPIDURAL</strong></td>
+                    <td>Loss of sensation in lower body/legs via drug injection into back canal.</td>
+                    <td>Headache (PDPH), backache, temporary urinary retention, nerve irritation, drop in BP.</td>
+                  </tr>
+                  <tr>
+                    <td style="text-align: center;">
+                      ${box(options.nerveBlock)} Block<br/>
+                      ${box(options.nerveBlockWithSedation)} With Sedation
+                    </td>
+                    <td><strong>MAJOR/MINOR NERVE BLOCK</strong></td>
+                    <td>Loss of sensation in specific limb/arm/leg via drug injection near local nerves.</td>
+                    <td>Temporary or permanent nerve injury, local bruising, systemic toxic reaction (LAST).</td>
+                  </tr>
+                  <tr>
+                    <td style="text-align: center;">
+                      ${box(options.regional)} Regional<br/>
+                      ${box(options.regionalWithSedation)} With Sedation
+                    </td>
+                    <td><strong>INTRAVENOUS REGIONAL</strong></td>
+                    <td>Loss of sensation in arm/leg using a specialized cuff pressure and IV drug.</td>
+                    <td>Tourniquet pain, systemic drug leakage, seizure, heart arrhythmia.</td>
+                  </tr>
+                  <tr>
+                    <td style="text-align: center;">${box(options.macWithSedation)}</td>
+                    <td><strong>MONITORED ANAESTHESIA CARE (with sedation)</strong></td>
+                    <td>Moderate to deep sedation, pain relief. Patient remains breathing naturally.</td>
+                    <td>Airway depression, hypoxia, rapid conversion to General Anaesthesia, memory loss.</td>
+                  </tr>
+                  <tr>
+                    <td style="text-align: center;">${box(options.macWithoutSedation)}</td>
+                    <td><strong>MONITORED ANAESTHESIA CARE (without sedation)</strong></td>
+                    <td>Local anesthesia and continuous monitoring of vital signs. No sedation.</td>
+                    <td>Awareness of environment, mild anxiety, pain at local site.</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <p style="font-weight: bold; margin-top: 10px;">STATEMENT OF INVOLVEMENT & UNDERSTANDING:</p>
+              <p>The anesthesiologist has explained the selected anaesthesia methods, typical benefits, risks, and alternatives. I realize that anesthesia administration has potential complications and that no absolute guarantees can be made regarding outcomes. I certify that I have fully disclosed my medical records, allergies, previous anesthesia reactions, and NBM (Nil-By-Mouth) status.</p>
+            ` : baseTerms.replace(/\n/g, '<br/>')}
           </div>
 
           <div class="signature-section">
             <div class="sig-block">
-              <div class="sig-data">${consent.signatureData}</div>
-              <p><strong>Patient / Guardian Signature</strong></p>
-              ${consent.guardianName ? `<p style="font-size:12px; color:#555;">Guardian: ${consent.guardianName}</p>` : ''}
+              <div class="sig-data">${printBlank ? '' : (consent.signatureData || 'Signed Electronically')}</div>
+              <p><strong>Signature of Patient / Next of Kin / Guardian</strong></p>
+              <p>Name: ${printBlank ? '________________________________________' : consent.patientName}</p>
+              ${consent.guardianName ? `<p>Guardian/Relation: ${consent.guardianName}</p>` : ''}
+              <p>Date: ____________________ Time: _________</p>
             </div>
+            
             <div class="sig-block">
-              <div class="sig-data" style="font-size:16px;">${consent.witnessName}</div>
-              <p><strong>Witness / Clinical Staff Signature</strong></p>
+              <div class="sig-data">${printBlank ? '' : (consent.witnessName || 'Witnessed')}</div>
+              <p><strong>Witness / Attending Medical Staff Signature</strong></p>
+              <p>Name: ${printBlank ? '________________________________________' : consent.witnessName}</p>
+              <p>Designation: Clinical Coordinator</p>
+              <p>Date: ____________________ Time: _________</p>
             </div>
           </div>
 
           <div class="footer">
-            <p>This is an archived, legally-binding clinical consent form. Digitally locked at ${dateFormatted}.</p>
+            <p>GastroPlus Multispeciality Hospital - Quality & Patient Safety Approved. Ref Code: CL-CNS-ANS-2026.</p>
+            <p>Generated via GastroPlus Health Cloud on ${new Date().toLocaleString()}</p>
           </div>
+          
           <script>
             window.onload = function() { window.print(); }
             window.onafterprint = function() { window.close(); }
@@ -258,14 +414,15 @@ export default function OTConsentManagement() {
       </html>
     `);
     printWindow.document.close();
-    toast.success('Print layout generated');
+    toast.success(printBlank ? 'Blank template ready for print' : 'Consent printed successfully!');
   };
 
   const filteredConsents = consents.filter(c => {
     const matchesSearch = c.patientName.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           c.witnessName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = selectedType === 'All' || c.type === selectedType;
-    return matchesSearch && matchesType;
+    const matchesPatient = patientId ? c.patientId === patientId : true;
+    return matchesSearch && matchesType && matchesPatient;
   });
 
   const consentTypes = ['All', 'General', 'Surgery', 'Anaesthesia', 'Blood Transfusion', 'ICU', 'High-risk'];
@@ -274,41 +431,59 @@ export default function OTConsentManagement() {
     <div className="space-y-6">
       {/* Informational Banner */}
       <div className="flex flex-col md:flex-row gap-6 p-6 rounded-2xl border border-[#1A5E63]/20 bg-slate-50/50">
-        <div className="p-4 rounded-xl bg-[#1A5E63]/10 text-[#1A5E63] self-start">
-          <FileCheck2 className="w-8 h-8" />
+        <div className="p-4 rounded-xl bg-[#1A5E63]/10 text-[#1A5E63] self-start shrink-0">
+          <FileSignature className="w-8 h-8" />
         </div>
         <div className="space-y-2">
-          <h3 className="font-bold text-[#1A5E63] text-lg">Informed Digital Consents</h3>
+          <h3 className="font-bold text-[#1A5E63] text-lg">Informed & Manual Clinical Consents</h3>
           <p className="text-sm text-slate-600 leading-relaxed max-w-3xl">
-            Authorize surgical and critical interventions securely. Each consent generates a digitally timestamped record detailing surgical benefits, anesthetist responsibilities, blood transfusions, or intensive care unit designations.
+            Fully customizable medical consent modules for General Surgery, ICU, Blood Transfusion, and Anaesthesia. Supports offline handwriting workflows via <strong>Print Blank Form</strong> or fully authorized digital timestamped signatures.
           </p>
           <div className="flex flex-wrap gap-2 pt-1">
-            <Badge variant="outline" className="bg-emerald-50 border-emerald-200 text-emerald-800 text-[10px] font-bold">256-Bit Encrypted</Badge>
-            <Badge variant="outline" className="bg-indigo-50 border-indigo-200 text-indigo-800 text-[10px] font-bold">Audit Trails Intact</Badge>
-            <Badge variant="outline" className="bg-amber-50 border-amber-200 text-amber-800 text-[10px] font-bold">Printable Layouts</Badge>
+            <Badge variant="outline" className="bg-teal-50 border-teal-200 text-teal-800 text-[10px] font-bold">WHO Standard Templates</Badge>
+            <Badge variant="outline" className="bg-indigo-50 border-indigo-200 text-indigo-800 text-[10px] font-bold">Printable Blank Sheets</Badge>
+            <Badge variant="outline" className="bg-amber-50 border-amber-200 text-amber-800 text-[10px] font-bold">Interactive Anaesthesia Blocks</Badge>
           </div>
         </div>
       </div>
 
-      {/* Main Grid: list + quick creation */}
+      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Side: Filterable Consent Archives */}
         <div className="lg:col-span-2 space-y-4">
           <Card className="border shadow-sm">
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <CardTitle className="text-lg font-bold">Informed Consent Archives</CardTitle>
-                  <CardDescription className="text-xs">Access pre-operative, anesthetic, and critical care consent authorizations.</CardDescription>
+                  <CardDescription className="text-xs">Access clinical authorizations, anesthetist blocks, and ICU designations.</CardDescription>
                 </div>
-                <Button onClick={handleOpenAdd} className="bg-medical-blue hover:bg-medical-blue/90 gap-1 text-xs font-semibold h-9">
-                  <Plus className="w-4 h-4" />
-                  Sign New Consent
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      // Trigger general blank print
+                      const tempConsent: OTConsent = {
+                        id: 'temp', patientId: '', type: 'General', terms: CONSENT_TEMPLATES['General'].text,
+                        patientName: 'Blank Template', witnessName: 'Staff Nurse', signedAt: new Date().toISOString(),
+                        signatureType: 'Typed', signatureData: '', status: 'Draft'
+                      };
+                      handlePrint(tempConsent, true);
+                    }}
+                    className="border-slate-300 font-bold text-xs h-9 gap-1"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Print Blank Template
+                  </Button>
+                  <Button onClick={handleOpenAdd} className="bg-medical-blue hover:bg-medical-blue/90 gap-1 text-xs font-semibold h-9">
+                    <Plus className="w-4 h-4" />
+                    Sign New Consent
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-col md:flex-row gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input 
@@ -330,63 +505,60 @@ export default function OTConsentManagement() {
 
               <div className="space-y-2">
                 {filteredConsents.length > 0 ? (
-                  filteredConsents.map((consent) => {
-                    const patientDetails = patients.find(p => p.id === consent.patientId) || {};
-                    return (
-                      <div key={consent.id} className="p-4 rounded-xl border border-slate-100 hover:border-slate-200 hover:shadow-xs transition-all bg-white flex items-center justify-between gap-4 group">
-                        <div className="space-y-1 min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <Badge className={`text-[9px] font-bold px-2 py-0.5 uppercase ${
-                              consent.type === 'High-risk' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
-                              consent.type === 'ICU' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                              consent.type === 'Surgery' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
-                              consent.type === 'Anaesthesia' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                              'bg-slate-50 text-slate-700 border border-slate-200'
-                            }`}>
-                              {consent.type} Consent
-                            </Badge>
-                            <span className="text-[10px] text-muted-foreground font-medium">
-                              {new Date(consent.signedAt).toLocaleDateString()} at {new Date(consent.signedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          <h4 className="font-bold text-sm text-slate-800">{consent.patientName}</h4>
-                          <p className="text-[11px] text-slate-500 truncate">
-                            Witness: <strong className="text-slate-600">{consent.witnessName}</strong> {consent.guardianName ? `• Guardian: ${consent.guardianName}` : ''}
-                          </p>
+                  filteredConsents.map((consent) => (
+                    <div key={consent.id} className="p-4 rounded-xl border border-slate-100 hover:border-slate-200 hover:shadow-xs transition-all bg-white flex items-center justify-between gap-4 group">
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <Badge className={`text-[9px] font-bold px-2 py-0.5 uppercase ${
+                            consent.type === 'High-risk' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                            consent.type === 'ICU' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                            consent.type === 'Surgery' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
+                            consent.type === 'Anaesthesia' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                            'bg-slate-50 text-slate-700 border border-slate-200'
+                          }`}>
+                            {consent.type} Consent
+                          </Badge>
+                          <span className="text-[10px] text-muted-foreground font-medium">
+                            {new Date(consent.signedAt).toLocaleDateString()} at {new Date(consent.signedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
                         </div>
-
-                        <div className="flex items-center gap-1 shrink-0 opacity-90 group-hover:opacity-100 transition-opacity">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-slate-500 hover:bg-slate-100" 
-                            onClick={() => setViewingConsent(consent)}
-                            title="Quick View Terms"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-medical-blue hover:bg-blue-50"
-                            onClick={() => handlePrint(consent)}
-                            title="Print Formal Layout"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-rose-500 hover:bg-rose-50"
-                            onClick={() => handleDelete(consent.id)}
-                            title="Revoke / Delete"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
+                        <h4 className="font-bold text-sm text-slate-800">{consent.patientName}</h4>
+                        <p className="text-[11px] text-slate-500 truncate">
+                          Witness / Staff: <strong className="text-slate-600">{consent.witnessName}</strong> {consent.guardianName ? `• Guardian: ${consent.guardianName}` : ''}
+                        </p>
                       </div>
-                    );
-                  })
+
+                      <div className="flex items-center gap-1 shrink-0 opacity-90 group-hover:opacity-100 transition-opacity">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-slate-500 hover:bg-slate-100" 
+                          onClick={() => setViewingConsent(consent)}
+                          title="Quick View"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-medical-blue hover:bg-blue-50"
+                          onClick={() => handlePrint(consent, false)}
+                          title="Print Form"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-rose-500 hover:bg-rose-50"
+                          onClick={() => handleDelete(consent.id)}
+                          title="Revoke / Delete"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
                 ) : (
                   <div className="py-12 text-center text-slate-400">
                     <FileText className="w-10 h-10 text-slate-200 mx-auto mb-2" />
@@ -398,7 +570,7 @@ export default function OTConsentManagement() {
           </Card>
         </div>
 
-        {/* Right Side: Quick Check List & Templates */}
+        {/* Right Side: Required Checklists & Templates */}
         <div className="space-y-4">
           <Card className="border shadow-sm">
             <CardHeader className="pb-2">
@@ -436,7 +608,7 @@ export default function OTConsentManagement() {
               <CardDescription className="text-[10px]">Read core conditions for various consent modules.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 pt-2">
-              {Object.entries(CONSENT_TEMPLATES).slice(0, 4).map(([key, item]) => (
+              {Object.entries(CONSENT_TEMPLATES).map(([key, item]) => (
                 <div 
                   key={key} 
                   className="p-2 border rounded-lg hover:bg-slate-50 cursor-pointer flex justify-between items-center group transition-colors"
@@ -453,11 +625,30 @@ export default function OTConsentManagement() {
                     status: 'Draft'
                   })}
                 >
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-800">{key} Consent</p>
-                    <p className="text-[9px] text-slate-400 truncate mt-0.5">{item.title}</p>
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-bold text-slate-800">{key}</p>
+                    <p className="text-[9px] text-slate-400 truncate max-w-[150px]">{item.title}</p>
                   </div>
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-800 transition-colors" />
+                  <div className="flex gap-1.5 opacity-40 group-hover:opacity-100 transition-opacity">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6 text-medical-blue hover:bg-blue-50"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const tempConsent: OTConsent = {
+                          id: 'temp', patientId: '', type: key as any, terms: item.text,
+                          patientName: 'Blank Template', witnessName: 'Staff Nurse', signedAt: new Date().toISOString(),
+                          signatureType: 'Typed', signatureData: '', status: 'Draft'
+                        };
+                        handlePrint(tempConsent, true);
+                      }}
+                      title="Print Blank Layout"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                    </Button>
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  </div>
                 </div>
               ))}
             </CardContent>
@@ -465,188 +656,302 @@ export default function OTConsentManagement() {
         </div>
       </div>
 
-      {/* Add New Consent Form Dialog */}
+      {/* NEW CONSENT DIALOG */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-[#1A5E63] font-bold text-xl">Digital Clinical Consent Authorization</DialogTitle>
-            <DialogDescription>
-              Select a patient, choose the consent type, review template terms, and capture authorization details.
-            </DialogDescription>
+        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl border-none shadow-2xl p-6 bg-white text-slate-800">
+          <DialogHeader className="pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-medical-blue text-white">
+                <FileSignature className="w-5 h-5" />
+              </div>
+              <DialogTitle className="text-lg font-black text-slate-800">Sign Informed Clinical Consent</DialogTitle>
+            </div>
+            <DialogDescription className="text-xs">Verify details, anesthetic risks, and sign pre-operative authorizations.</DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-4 py-2">
-            {/* Patient Search Dropdown */}
-            <div className="space-y-1.5 relative">
-              <Label className="font-semibold text-slate-800">Select Patient *</Label>
+          <form onSubmit={handleSubmit} className="space-y-4 pt-4 text-xs font-semibold text-slate-700">
+            {/* Patient selector search */}
+            <div className="space-y-1 relative">
+              <Label className="text-xs font-bold text-slate-700">Select Patient *</Label>
               <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input 
-                  placeholder="Type name or phone to search..."
+                  placeholder="Type name, phone or MRN to search..."
                   value={patientSearch}
                   onChange={(e) => {
                     setPatientSearch(e.target.value);
                     setShowPatientList(true);
                   }}
                   onFocus={() => setShowPatientList(true)}
-                  required
+                  className="pl-9 h-9 text-xs bg-slate-50 font-medium"
                 />
-                <Search className="absolute right-3 top-2.5 w-4 h-4 text-slate-400" />
               </div>
-              
-              {showPatientList && patientSearch.length > 0 && (
-                <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-xl mt-1 max-h-[160px] overflow-y-auto">
-                  {patients.filter(p => 
-                    p.name.toLowerCase().includes(patientSearch.toLowerCase()) || 
-                    (p.phone || '').includes(patientSearch)
-                  ).length > 0 ? (
-                    patients.filter(p => 
-                      p.name.toLowerCase().includes(patientSearch.toLowerCase()) || 
-                      (p.phone || '').includes(patientSearch)
-                    ).map(p => (
+
+              {showPatientList && patientSearch && (
+                <div className="absolute top-16 left-0 w-full bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden divide-y divide-slate-100 max-h-[160px] overflow-y-auto">
+                  {patients
+                    .filter(p => p.name.toLowerCase().includes(patientSearch.toLowerCase()) || p.mrn.toLowerCase().includes(patientSearch.toLowerCase()))
+                    .map(p => (
                       <div 
-                        key={p.id} 
-                        className="p-2.5 hover:bg-slate-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
+                        key={p.id}
                         onClick={() => handleSelectPatient(p)}
+                        className="p-2.5 hover:bg-slate-50 cursor-pointer transition-colors flex justify-between items-center"
                       >
                         <div>
-                          <p className="text-xs font-bold">{p.name}</p>
-                          <p className="text-[10px] text-slate-400">MRN: {p.mrn} • Age: {p.age} • Gender: {p.gender}</p>
+                          <p className="font-bold text-slate-800 text-[11px]">{p.name}</p>
+                          <p className="text-[9px] text-slate-400">MRN: {p.mrn} • Phone: {p.phone || 'N/A'}</p>
                         </div>
+                        <Badge variant="outline" className="text-[8px] uppercase">{p.registration_type || 'Patient'}</Badge>
                       </div>
                     ))
-                  ) : (
-                    <p className="p-3 text-xs text-center text-slate-400">No patients matched search criteria</p>
-                  )}
+                  }
                 </div>
               )}
             </div>
 
-            {/* Consent Type */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="font-semibold text-slate-800">Consent Type</Label>
-                <Select 
-                  value={formData.type} 
-                  onValueChange={(v: any) => handleTypeChange(v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Consent Authorization Module *</Label>
+                <Select value={formData.type} onValueChange={(v) => handleTypeChange(v as any)}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="Consent Type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="General">General Consent</SelectItem>
-                    <SelectItem value="Surgery">Surgery Consent</SelectItem>
-                    <SelectItem value="Anaesthesia">Anaesthesia Consent</SelectItem>
-                    <SelectItem value="Blood Transfusion">Blood Transfusion</SelectItem>
-                    <SelectItem value="ICU">ICU Admission</SelectItem>
-                    <SelectItem value="High-risk">High-Risk Consent</SelectItem>
+                    {consentTypes.filter(t => t !== 'All').map(t => <SelectItem key={t} value={t} className="text-xs">{t} Consent</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="font-semibold text-slate-800">Guardian Name (If minor / ward)</Label>
+              <div className="space-y-1">
+                <Label>Next of Kin / Guardian (Optional)</Label>
                 <Input 
-                  placeholder="e.g. Mary Doe (Relationship: Mother)"
+                  placeholder="e.g. Meena Kumar (Wife)" 
                   value={formData.guardianName}
-                  onChange={(e) => setFormData({...formData, guardianName: e.target.value})}
+                  onChange={e => setFormData({...formData, guardianName: e.target.value})}
+                  className="h-9 text-xs bg-slate-50 font-medium"
                 />
               </div>
             </div>
 
-            {/* Terms review (editable) */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="font-semibold text-slate-800">Legal & Medical Terms of Consent</Label>
-                <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 font-bold">Standard Template Loaded</Badge>
-              </div>
-              <textarea 
-                value={formData.terms}
-                onChange={(e) => setFormData({...formData, terms: e.target.value})}
-                rows={6}
-                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-medium leading-relaxed font-sans ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A5E63] disabled:cursor-not-allowed disabled:opacity-50 custom-scrollbar"
-              />
-            </div>
+            {/* ANAESTHESIA CUSTOM OPTIONS */}
+            {formData.type === 'Anaesthesia' ? (
+              <div className="bg-emerald-50/40 border border-emerald-100 rounded-xl p-4 space-y-3">
+                <p className="font-black text-emerald-950 uppercase text-[10px] tracking-wider flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                  Select Anaesthesia Services to Administer
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-[11px]">
+                  <label className="flex items-center gap-2 cursor-pointer bg-white p-2 rounded-lg border border-slate-100">
+                    <Checkbox 
+                      checked={anaesthesiaOptions.general}
+                      onCheckedChange={checked => setAnaesthesiaOptions({...anaesthesiaOptions, general: !!checked})}
+                    />
+                    <span>General Anaesthesia</span>
+                  </label>
 
-            {/* Witness & Signature */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="font-semibold text-slate-800">Authorized Witness / Staff *</Label>
+                  <div className="bg-white p-2 rounded-lg border border-slate-100 space-y-1">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox 
+                        checked={anaesthesiaOptions.spinalEpidural}
+                        onCheckedChange={checked => setAnaesthesiaOptions({...anaesthesiaOptions, spinalEpidural: !!checked})}
+                      />
+                      <span className="font-bold">Spinal or Epidural</span>
+                    </label>
+                    <label className="flex items-center gap-2 pl-6 cursor-pointer opacity-80 text-[10px]">
+                      <Checkbox 
+                        checked={anaesthesiaOptions.spinalEpiduralWithSedation}
+                        disabled={!anaesthesiaOptions.spinalEpidural}
+                        onCheckedChange={checked => setAnaesthesiaOptions({...anaesthesiaOptions, spinalEpiduralWithSedation: !!checked})}
+                      />
+                      <span>With Sedation</span>
+                    </label>
+                  </div>
+
+                  <div className="bg-white p-2 rounded-lg border border-slate-100 space-y-1">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox 
+                        checked={anaesthesiaOptions.nerveBlock}
+                        onCheckedChange={checked => setAnaesthesiaOptions({...anaesthesiaOptions, nerveBlock: !!checked})}
+                      />
+                      <span className="font-bold">Major/Minor Nerve Block</span>
+                    </label>
+                    <label className="flex items-center gap-2 pl-6 cursor-pointer opacity-80 text-[10px]">
+                      <Checkbox 
+                        checked={anaesthesiaOptions.nerveBlockWithSedation}
+                        disabled={!anaesthesiaOptions.nerveBlock}
+                        onCheckedChange={checked => setAnaesthesiaOptions({...anaesthesiaOptions, nerveBlockWithSedation: !!checked})}
+                      />
+                      <span>With Sedation</span>
+                    </label>
+                  </div>
+
+                  <div className="bg-white p-2 rounded-lg border border-slate-100 space-y-1">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox 
+                        checked={anaesthesiaOptions.regional}
+                        onCheckedChange={checked => setAnaesthesiaOptions({...anaesthesiaOptions, regional: !!checked})}
+                      />
+                      <span className="font-bold">Intravenous Regional</span>
+                    </label>
+                    <label className="flex items-center gap-2 pl-6 cursor-pointer opacity-80 text-[10px]">
+                      <Checkbox 
+                        checked={anaesthesiaOptions.regionalWithSedation}
+                        disabled={!anaesthesiaOptions.regional}
+                        onCheckedChange={checked => setAnaesthesiaOptions({...anaesthesiaOptions, regionalWithSedation: !!checked})}
+                      />
+                      <span>With Sedation</span>
+                    </label>
+                  </div>
+
+                  <label className="flex items-center gap-2 cursor-pointer bg-white p-2 rounded-lg border border-slate-100">
+                    <Checkbox 
+                      checked={anaesthesiaOptions.macWithSedation}
+                      onCheckedChange={checked => setAnaesthesiaOptions({...anaesthesiaOptions, macWithSedation: !!checked})}
+                    />
+                    <span>Monitored Anaesthesia (with sedation)</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer bg-white p-2 rounded-lg border border-slate-100">
+                    <Checkbox 
+                      checked={anaesthesiaOptions.macWithoutSedation}
+                      onCheckedChange={checked => setAnaesthesiaOptions({...anaesthesiaOptions, macWithoutSedation: !!checked})}
+                    />
+                    <span>Monitored Anaesthesia (no sedation)</span>
+                  </label>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <Label>Clinical Terms & Conditions Disclosure</Label>
+                <div className="p-3 bg-slate-50 border rounded-xl text-[10px] text-slate-600 font-medium whitespace-pre-line leading-normal max-h-[160px] overflow-y-auto">
+                  {formData.terms}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div className="space-y-1">
+                <Label>Witness / Attending Medical Officer *</Label>
                 <Input 
-                  placeholder="e.g. Dr. Alok Verma"
+                  placeholder="e.g. Dr. Alok Verma" 
                   value={formData.witnessName}
-                  onChange={(e) => setFormData({...formData, witnessName: e.target.value})}
-                  required
+                  onChange={e => setFormData({...formData, witnessName: e.target.value})}
+                  className="h-9 text-xs bg-slate-50 font-medium"
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="font-semibold text-slate-800">Patient/Guardian E-Signature *</Label>
+              <div className="space-y-1">
+                <Label>Authorize & Digitally Sign (Type Patient/Guardian Full Name) *</Label>
                 <Input 
-                  placeholder="Type Full Legal Name to Sign"
+                  placeholder="e.g. Arjun Mehta" 
                   value={formData.signatureData}
-                  onChange={(e) => setFormData({...formData, signatureData: e.target.value})}
-                  required
-                  className="font-serif italic text-sm text-[#1A5E63] font-bold"
+                  onChange={e => setFormData({...formData, signatureData: e.target.value})}
+                  className="h-9 text-xs font-black bg-slate-50 border-indigo-200 text-indigo-900 placeholder-slate-400 font-serif italic"
                 />
               </div>
             </div>
 
-            <Separator className="pt-2" />
-
-            <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-semibold px-1">
-              <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              Submitting this form certifies verbal briefing of medical procedure benefits, alternatives, and catastrophic failure outcomes.
-            </div>
-
-            <DialogFooter className="pt-3">
-              <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-[#1A5E63] hover:bg-[#154c50]">Sign & Archive</Button>
+            <DialogFooter className="pt-4 border-t border-slate-100">
+              <Button type="button" variant="ghost" onClick={() => setIsAddOpen(false)} className="text-xs h-9">Cancel</Button>
+              <Button type="submit" className="bg-medical-blue hover:bg-medical-blue/90 text-xs h-9">Archive & Print Signed Consent</Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Detailed View Modal */}
+      {/* VIEW DIALOG */}
       <Dialog open={!!viewingConsent} onOpenChange={() => setViewingConsent(null)}>
-        <DialogContent className="sm:max-w-[550px]">
-          <DialogHeader>
-            <div className="flex items-center gap-2">
-              <Badge className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">ARCHIVED DOCUMENT</Badge>
-              {viewingConsent?.status === 'Signed' && <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold">SIGNED</Badge>}
-            </div>
-            <DialogTitle className="text-lg font-bold text-slate-900 mt-2">
-              {viewingConsent ? CONSENT_TEMPLATES[viewingConsent.type]?.title : ''}
-            </DialogTitle>
-          </DialogHeader>
-
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border-none shadow-2xl p-6 bg-white text-slate-800">
           {viewingConsent && (
-            <div className="space-y-4 pt-2">
-              <div className="p-3 bg-slate-50 border rounded-lg text-xs grid grid-cols-2 gap-2 text-slate-600 font-semibold">
-                <div>Patient Name: <strong className="text-slate-800">{viewingConsent.patientName}</strong></div>
-                <div>Witness: <strong className="text-slate-800">{viewingConsent.witnessName}</strong></div>
-                {viewingConsent.guardianName && <div className="col-span-2">Guardian: <strong className="text-slate-800">{viewingConsent.guardianName}</strong></div>}
-                <div className="col-span-2">Signed At: <strong className="text-slate-800">{new Date(viewingConsent.signedAt).toLocaleString()}</strong></div>
-              </div>
-
-              <div className="p-4 bg-slate-50 border rounded-lg text-xs max-h-[220px] overflow-y-auto font-medium leading-relaxed text-slate-600 white-space-pre-wrap font-sans custom-scrollbar">
-                {viewingConsent.terms}
-              </div>
-
-              <div className="p-3 border rounded-lg border-dashed bg-emerald-50/20 flex flex-col items-center justify-center py-4">
-                <span className="font-serif italic text-xl text-[#1A5E63] font-bold mb-1">
-                  {viewingConsent.signatureData || 'No Signature'}
-                </span>
-                <span className="text-[10px] uppercase font-extrabold tracking-wider text-muted-foreground">Authorized Digital E-Signature</span>
-              </div>
-
-              <DialogFooter className="pt-2">
-                <Button variant="outline" onClick={() => setViewingConsent(null)}>Close</Button>
-                <Button className="bg-[#1A5E63]" onClick={() => handlePrint(viewingConsent)}>
-                  <Printer className="w-4 h-4 mr-1.5" />
-                  Print Consent Form
+            <>
+              <DialogHeader className="pb-4 border-b border-slate-100 flex flex-row items-center justify-between">
+                <div>
+                  <Badge className="bg-indigo-50 border border-indigo-200 text-indigo-800 text-[9px] uppercase font-bold py-0.5 mb-1">{viewingConsent.type} Consent</Badge>
+                  <DialogTitle className="text-base font-bold text-slate-800">Consent Verification Detail</DialogTitle>
+                </div>
+                <Button 
+                  onClick={() => handlePrint(viewingConsent)} 
+                  className="bg-medical-blue text-white hover:bg-medical-blue/95 font-bold text-xs gap-1 h-8 px-3"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  Print Form
                 </Button>
-              </DialogFooter>
-            </div>
+              </DialogHeader>
+
+              <div className="space-y-4 pt-4 text-xs font-semibold text-slate-700">
+                <div className="grid grid-cols-2 gap-4 p-3 bg-slate-50 border rounded-xl">
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold">Patient Name</span>
+                    <p className="font-extrabold text-slate-800 text-sm mt-0.5">{viewingConsent.patientName}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold">Witness / Attending</span>
+                    <p className="font-extrabold text-slate-800 text-sm mt-0.5">{viewingConsent.witnessName}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold">Authorized At</span>
+                    <p className="font-bold text-slate-600 mt-0.5">{new Date(viewingConsent.signedAt).toLocaleString()}</p>
+                  </div>
+                  {viewingConsent.guardianName && (
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold">Guardian / Relation</span>
+                      <p className="font-bold text-slate-600 mt-0.5">{viewingConsent.guardianName}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold">Disclosure Agreement Terms</span>
+                  <div className="p-3.5 bg-white border rounded-xl text-[10px] text-slate-600 font-medium whitespace-pre-line leading-normal max-h-[220px] overflow-y-auto shadow-2xs">
+                    {(() => {
+                      if (viewingConsent.type === 'Anaesthesia') {
+                        try {
+                          const parsed = JSON.parse(viewingConsent.terms);
+                          if (parsed && parsed.baseTerms) {
+                            // Show selections
+                            const sel = parsed.selections || {};
+                            const selList = Object.entries(sel)
+                              .filter(([_, val]) => !!val)
+                              .map(([key, _]) => key.replace(/([A-Z])/g, ' $1').toUpperCase());
+                            
+                            return (
+                              <div className="space-y-2">
+                                <p className="italic font-bold text-slate-800">Anesthetic Techniques Authorized:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {selList.length > 0 ? selList.map(s => <Badge key={s} variant="outline" className="text-[8px] bg-emerald-50 text-emerald-800 border-emerald-200">{s}</Badge>) : <Badge variant="outline" className="text-[8px]">NONE SELECTED</Badge>}
+                                </div>
+                                <Separator className="my-2" />
+                                <p>{parsed.baseTerms}</p>
+                              </div>
+                            );
+                          }
+                        } catch {
+                          // normal string
+                        }
+                      }
+                      return viewingConsent.terms;
+                    })()}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div className="p-3 bg-indigo-50/40 border border-indigo-100 rounded-xl">
+                    <span className="text-[10px] text-indigo-400 uppercase font-bold">Patient Signature Mark</span>
+                    <p className="font-serif italic font-black text-indigo-950 text-base mt-1">"{viewingConsent.signatureData}"</p>
+                    <p className="text-[9px] text-indigo-500 font-bold uppercase mt-1">Digitally Sealed</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 border rounded-xl flex flex-col justify-center">
+                    <span className="text-[10px] text-slate-400 uppercase font-bold">Verification Hash</span>
+                    <p className="font-mono text-[9px] text-slate-500 mt-1 truncate">SHA256-{viewingConsent.id.toUpperCase()}</p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Legal Compliant</p>
+                  </div>
+                </div>
+
+                <DialogFooter className="pt-4 border-t">
+                  <Button onClick={() => setViewingConsent(null)} className="h-9 text-xs font-bold bg-slate-900 text-white">Close Details</Button>
+                </DialogFooter>
+              </div>
+            </>
           )}
         </DialogContent>
       </Dialog>

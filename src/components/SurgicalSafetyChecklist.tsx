@@ -18,7 +18,9 @@ import {
   Activity,
   Heart,
   Layers,
-  Sparkles
+  Sparkles,
+  Printer,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,47 +40,73 @@ interface SurgicalSafetyChecklistProps {
 
 export default function SurgicalSafetyChecklist({ record, patient, onClose, onSave }: SurgicalSafetyChecklistProps) {
   const [currentStep, setCurrentStep] = useState(1);
-  const [coordinator, setCoordinator] = useState('');
   const [notes, setNotes] = useState('');
 
-  // Step 1: Patient Identity Verification
-  const [identityChecks, setIdentityChecks] = useState({
-    nameVerified: false,
-    mrnVerified: false,
-    consentFormSigned: false,
-    idBandSecured: false,
-    procedureConfirmed: false,
-    allergyStatusChecked: false,
+  // Signatures and metadata
+  const [signatures, setSignatures] = useState({
+    surgeonName: record.surgeonName || '',
+    surgeonSig: '',
+    surgeonDate: new Date().toISOString().substring(0, 10),
+    surgeonTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
+    anesthetistName: record.anesthetistName || '',
+    anesthetistSig: '',
+    anesthetistDate: new Date().toISOString().substring(0, 10),
+    anesthetistTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
+    nurseName: '',
+    nurseSig: '',
+    nurseDate: new Date().toISOString().substring(0, 10),
+    nurseTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
   });
 
-  // Step 2: Surgical Site Marking
-  const [siteChecks, setSiteChecks] = useState({
-    siteMarked: false,
-    siteCorrectlyIdentified: false,
-    notApplicableReason: '', // e.g. single organ, dental, etc.
-    surgicalSiteConfirmedWithPatient: false,
-    consentMatchesSite: false,
+  // Vitals
+  const [vitals, setVitals] = useState({
+    pr: '',
+    bp: '',
+    spo2: ''
   });
 
-  // Step 3: Equipment & Anesthesia Readiness
-  const [equipmentChecks, setEquipmentChecks] = useState({
-    anesthesiaMachineChecked: false,
-    airwayAspirationChecked: false,
+  // Step 1: SIGN IN (Before induction of anesthesia)
+  const [signInChecks, setSignInChecks] = useState({
+    patientConfirmedIdentity: false,
+    patientConfirmedSite: false,
+    patientConfirmedProcedure: false,
+    patientConfirmedConsent: false,
+    siteMarkedOrNA: false,
+    anaesthesiaSafetyCheckCompleted: false,
     pulseOximeterFunctioning: false,
-    sterileIndicatorConfirmed: false,
-    diathermyGroundingSecured: false,
-    implantsAvailable: false,
-    equipmentCalibrated: false,
+    imagingAndInvestigationAvailable: false,
+    adequateAnesthesiaEquipmentAvailable: false,
+    relevantImplantAvailable: false,
+    positioningDiscussed: false,
+    knownAllergy: 'No', // 'No' | 'Yes'
+    allergyDetails: '',
+    difficultAirwayRisk: 'No', // 'No' | 'Yes' (equipment/assistance available)
+    bloodLossRisk: 'No', // 'No' | 'Yes' (adequate access and fluids/blood planned)
+    dvtRisk: 'No' // 'No' | 'Yes'
   });
 
-  // Step 4: Final Sign-Off & Team Coordination
-  const [signOffChecks, setSignOffChecks] = useState({
+  // Step 2: TIME OUT (Before skin incision)
+  const [timeOutChecks, setTimeOutChecks] = useState({
     teamIntroduced: false,
-    bloodLossRiskAssessed: false,
-    antibioticProphylaxisGiven: false,
-    specimenLabelingPlanChecked: false,
-    spongeInstrumentCountCorrect: false,
-    criticalConcernsReviewed: false,
+    verballyConfirmPatientSiteProcedureConsent: false,
+    imagingCheckedWithIdentity: false,
+    criticalStepsReviewedSurgeon: false,
+    caseDurationDiscussedSurgeon: false,
+    anticipatedBloodLossDiscussedSurgeon: false,
+    patientSpecificConcernsAnesthetist: false,
+    sterilityConfirmedNursing: false,
+    equipmentIssuesAddressedNursing: false,
+    antibioticProphylaxisGiven: 'Yes', // 'Yes' | 'NA'
+    essentialImagingDisplayed: 'Yes' // 'Yes' | 'NA'
+  });
+
+  // Step 3: SIGN OUT (Before patient leaves operating room)
+  const [signOutChecks, setSignOutChecks] = useState({
+    procedureNameRecorded: false,
+    instrumentSpongeNeedleCountsCorrect: false,
+    specimenLabeledCorrectly: false,
+    equipmentProblemsAddressed: false,
+    recoveryManagementReviewed: false
   });
 
   // Load existing checklist state if available
@@ -86,11 +114,11 @@ export default function SurgicalSafetyChecklist({ record, patient, onClose, onSa
     const savedChecklists = storage.get('hms_ot_surgical_checklists', {});
     const saved = savedChecklists[record.id];
     if (saved) {
-      if (saved.identityChecks) setIdentityChecks(saved.identityChecks);
-      if (saved.siteChecks) setSiteChecks(saved.siteChecks);
-      if (saved.equipmentChecks) setEquipmentChecks(saved.equipmentChecks);
-      if (saved.signOffChecks) setSignOffChecks(saved.signOffChecks);
-      if (saved.completedBy) setCoordinator(saved.completedBy);
+      if (saved.signInChecks) setSignInChecks(saved.signInChecks);
+      if (saved.timeOutChecks) setTimeOutChecks(saved.timeOutChecks);
+      if (saved.signOutChecks) setSignOutChecks(saved.signOutChecks);
+      if (saved.signatures) setSignatures(saved.signatures);
+      if (saved.vitals) setVitals(saved.vitals);
       if (saved.notes) setNotes(saved.notes);
       if (saved.currentStep) setCurrentStep(saved.currentStep);
     }
@@ -98,33 +126,31 @@ export default function SurgicalSafetyChecklist({ record, patient, onClose, onSa
 
   // Calculate completeness score
   const totalChecks = 
-    Object.keys(identityChecks).length + 
-    Object.keys(siteChecks).length - 1 + // Exclude 'notApplicableReason' string
-    Object.keys(equipmentChecks).length + 
-    Object.keys(signOffChecks).length;
+    Object.keys(signInChecks).length - 2 + // subtract details & radio choices
+    Object.keys(timeOutChecks).length - 2 + 
+    Object.keys(signOutChecks).length;
 
   const completedChecksCount = 
-    Object.values(identityChecks).filter(Boolean).length + 
-    Object.values(siteChecks).filter(v => typeof v === 'boolean' && v).length + 
-    Object.values(equipmentChecks).filter(Boolean).length + 
-    Object.values(signOffChecks).filter(Boolean).length;
+    Object.values(signInChecks).filter(v => typeof v === 'boolean' && v).length + 
+    Object.values(timeOutChecks).filter(v => typeof v === 'boolean' && v).length + 
+    Object.values(signOutChecks).filter(v => typeof v === 'boolean' && v).length;
 
   const percentComplete = Math.round((completedChecksCount / totalChecks) * 100);
 
   const handleSave = () => {
-    if (!coordinator.trim()) {
-      toast.error('Please enter the name of the Checklist Coordinator');
+    if (!signatures.nurseName.trim()) {
+      toast.error('Please enter the Nurse Coordinator Name');
       return;
     }
 
     const savedChecklists = storage.get('hms_ot_surgical_checklists', {});
     savedChecklists[record.id] = {
       recordId: record.id,
-      identityChecks,
-      siteChecks,
-      equipmentChecks,
-      signOffChecks,
-      completedBy: coordinator,
+      signInChecks,
+      timeOutChecks,
+      signOutChecks,
+      signatures,
+      vitals,
       notes,
       percentComplete,
       currentStep,
@@ -132,17 +158,336 @@ export default function SurgicalSafetyChecklist({ record, patient, onClose, onSa
     };
 
     storage.set('hms_ot_surgical_checklists', savedChecklists);
-    toast.success('Surgical Safety Checklist saved successfully!');
+    toast.success('WHO Surgical Safety Checklist archived successfully!');
     if (onSave) onSave();
     onClose();
   };
 
   const nextStep = () => {
-    if (currentStep < 4) setCurrentStep(currentStep + 1);
+    if (currentStep < 3) setCurrentStep(currentStep + 1);
   };
 
   const prevStep = () => {
     if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
+
+  const handlePrint = (printBlank = false) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Failed to open print layout. Please disable popup blockers.');
+      return;
+    }
+
+    const patName = printBlank ? '________________________________________' : (patient?.name || '____________________');
+    const patMrn = printBlank ? '____________________' : (patient?.mrn || '____________________');
+    const patDob = printBlank ? '____________' : (patient?.dob || 'N/A');
+    const patAge = printBlank ? '________' : (patient?.age || 'N/A');
+    const patGender = printBlank ? '________' : (patient?.gender || 'N/A');
+
+    const prVal = printBlank ? '___________' : (vitals.pr || '___________');
+    const bpVal = printBlank ? '___________' : (vitals.bp || '___________');
+    const spo2Val = printBlank ? '___________' : (vitals.spo2 || '___________');
+
+    const box = (checked: boolean) => `
+      <span style="display:inline-block; width:12px; height:12px; border:1px solid #000; text-align:center; line-height:10px; font-size:10px; font-weight:bold; font-family: monospace; margin-right:4px;">
+        ${checked ? '✓' : '&nbsp;'}
+      </span>
+    `;
+
+    const radioBox = (checked: boolean) => `
+      <span style="display:inline-block; width:12px; height:12px; border:1px solid #000; border-radius:50%; text-align:center; line-height:10px; font-size:10px; font-weight:bold; font-family: monospace; margin-right:4px;">
+        ${checked ? '●' : '&nbsp;'}
+      </span>
+    `;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Surgical Safety Checklist - ${patient?.name || 'Manual'}</title>
+          <style>
+            body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 20px; color: #111; line-height: 1.4; font-size: 11px; }
+            .header-table { width: 100%; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px; }
+            .hospital-name { font-size: 20px; font-weight: black; letter-spacing: -0.5px; margin: 0; color: #1A5E63; text-transform: uppercase; }
+            .doc-title { font-size: 16px; font-weight: bold; margin: 5px 0 0 0; text-transform: uppercase; letter-spacing: 0.5px; }
+            .patient-info { width: 100%; border: 1px solid #aaa; padding: 8px; border-radius: 4px; margin-bottom: 15px; font-size: 11px; }
+            .patient-info td { padding: 4px; }
+            .checklist-grid { display: table; width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            .column { display: table-cell; width: 33.33%; border: 1px solid #000; padding: 10px; vertical-align: top; }
+            .column-header { background-color: #f0f0f0; border-bottom: 2px solid #000; font-weight: bold; font-size: 12px; text-transform: uppercase; padding: 6px; margin: -10px -10px 10px -10px; text-align: center; }
+            .section-sub { font-weight: bold; text-transform: uppercase; margin-top: 8px; margin-bottom: 4px; font-size: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 2px; }
+            .item { margin-bottom: 6px; display: flex; align-items: flex-start; }
+            .item-text { margin-left: 2px; }
+            .vitals-box { border: 1px solid #ccc; padding: 6px; background: #fafafa; margin-top: 10px; }
+            .vitals-title { font-weight: bold; font-size: 9px; text-transform: uppercase; margin-bottom: 4px; }
+            .signatures-table { width: 100%; border-collapse: collapse; margin-top: 20px; page-break-inside: avoid; }
+            .signatures-table th, .signatures-table td { border: 1px solid #999; padding: 8px; font-size: 10px; text-align: left; }
+            .signatures-table th { background-color: #f9f9f9; }
+            .sig-line { font-family: 'Georgia', serif; font-style: italic; font-size: 14px; color: #1A5E63; }
+            .footer { text-align: center; font-size: 9px; color: #666; margin-top: 30px; border-top: 1px solid #eee; padding-top: 10px; }
+            @media print {
+              body { padding: 10px; }
+              .column { height: 600px; }
+            }
+          </style>
+        </head>
+        <body>
+          <table class="header-table">
+            <tr>
+              <td>
+                <h1 class="hospital-name">GastroPlus Hospital</h1>
+                <div class="doc-title">Surgical Safety Checklist (WHO Protocol)</div>
+              </td>
+              <td style="text-align: right; font-size: 10px; font-weight: bold;">
+                Operating Theatre Safety Compliance<br/>
+                Standard Operating Procedure (SOP)
+              </td>
+            </tr>
+          </table>
+
+          <table class="patient-info">
+            <tr>
+              <td><strong>Patient Name:</strong> ${patName}</td>
+              <td><strong>ID / UHID No (MRN):</strong> ${patMrn}</td>
+            </tr>
+            <tr>
+              <td><strong>Age / Gender:</strong> ${patAge} / ${patGender}</td>
+              <td><strong>DOB:</strong> ${patDob}</td>
+            </tr>
+            <tr>
+              <td><strong>Scheduled Surgery:</strong> ${printBlank ? '________________________________________' : record.operationName}</td>
+              <td><strong>Assigned Surgeon:</strong> ${printBlank ? '____________________' : (signatures.surgeonName || 'N/A')}</td>
+            </tr>
+          </table>
+
+          <div class="checklist-grid">
+            <!-- SIGN IN COLUMN -->
+            <div class="column">
+              <div class="column-header" style="border-bottom: 2px solid #312e81; background-color: #e0e7ff;">SIGN IN (Before Induction)</div>
+              
+              <div class="section-sub">Patient Confirmation</div>
+              <div class="item">
+                ${box(!printBlank && signInChecks.patientConfirmedIdentity)}
+                <span class="item-text">Identity Confirmed</span>
+              </div>
+              <div class="item">
+                ${box(!printBlank && signInChecks.patientConfirmedSite)}
+                <span class="item-text">Surgical Site Confirmed</span>
+              </div>
+              <div class="item">
+                ${box(!printBlank && signInChecks.patientConfirmedProcedure)}
+                <span class="item-text">Planned Procedure Confirmed</span>
+              </div>
+              <div class="item">
+                ${box(!printBlank && signInChecks.patientConfirmedConsent)}
+                <span class="item-text">Written Surgical Consent Form Signed</span>
+              </div>
+
+              <div class="section-sub">Site & Safety Check</div>
+              <div class="item">
+                ${box(!printBlank && signInChecks.siteMarkedOrNA)}
+                <span class="item-text">Surgical Site Marked / N/A</span>
+              </div>
+              <div class="item">
+                ${box(!printBlank && signInChecks.anaesthesiaSafetyCheckCompleted)}
+                <span class="item-text">Anesthesia Safety Machine Check Completed</span>
+              </div>
+              <div class="item">
+                ${box(!printBlank && signInChecks.pulseOximeterFunctioning)}
+                <span class="item-text">Pulse Oximeter Placed & Functioning</span>
+              </div>
+              <div class="item">
+                ${box(!printBlank && signInChecks.imagingAndInvestigationAvailable)}
+                <span class="item-text">Imaging & Diagnostics Available</span>
+              </div>
+              <div class="item">
+                ${box(!printBlank && signInChecks.adequateAnesthesiaEquipmentAvailable)}
+                <span class="item-text">Equipment, Assist & Meds Checked</span>
+              </div>
+              <div class="item">
+                ${box(!printBlank && signInChecks.relevantImplantAvailable)}
+                <span class="item-text">Special Implants / Hardware Checked</span>
+              </div>
+              <div class="item">
+                ${box(!printBlank && signInChecks.positioningDiscussed)}
+                <span class="item-text">Patient Positioning Discussed</span>
+              </div>
+
+              <div class="section-sub">Clinical Risks Assessed</div>
+              <div style="margin-left: 5px; margin-bottom: 5px;">
+                <strong>Known Allergy?</strong><br/>
+                ${radioBox(!printBlank && signInChecks.knownAllergy === 'No')} No
+                ${radioBox(!printBlank && signInChecks.knownAllergy === 'Yes')} Yes
+                ${!printBlank && signInChecks.knownAllergy === 'Yes' ? `<br/><span style="font-size:9px;color:#555;">Details: ${signInChecks.allergyDetails}</span>` : ''}
+              </div>
+              <div style="margin-left: 5px; margin-bottom: 5px;">
+                <strong>Difficult Airway / Aspiration Risk?</strong><br/>
+                ${radioBox(!printBlank && signInChecks.difficultAirwayRisk === 'No')} No
+                ${radioBox(!printBlank && signInChecks.difficultAirwayRisk === 'Yes')} Yes (Meds & rescue at hand)
+              </div>
+              <div style="margin-left: 5px; margin-bottom: 5px;">
+                <strong>Risk of >500ml Blood Loss?</strong><br/>
+                ${radioBox(!printBlank && signInChecks.bloodLossRisk === 'No')} No
+                ${radioBox(!printBlank && signInChecks.bloodLossRisk === 'Yes')} Yes (2 IV access lines & blood ready)
+              </div>
+              <div style="margin-left: 5px; margin-bottom: 5px;">
+                <strong>Moderate / High DVT Risk?</strong><br/>
+                ${radioBox(!printBlank && signInChecks.dvtRisk === 'No')} No
+                ${radioBox(!printBlank && signInChecks.dvtRisk === 'Yes')} Yes (Intraop prophylaxis planned)
+              </div>
+
+              <div class="vitals-box">
+                <div class="vitals-title">Pre-Op Vital Log</div>
+                Pulse Rate: <strong>${prVal} / Min</strong><br/>
+                Blood Pressure: <strong>${bpVal} mmHg</strong><br/>
+                SpO2 Value: <strong>${spo2Val} %</strong>
+              </div>
+            </div>
+
+            <!-- TIME OUT COLUMN -->
+            <div class="column">
+              <div class="column-header" style="border-bottom: 2px solid #b45309; background-color: #fef3c7;">TIME OUT (Before Incision)</div>
+              
+              <div class="section-sub">Team Introductions</div>
+              <div class="item">
+                ${box(!printBlank && timeOutChecks.teamIntroduced)}
+                <span class="item-text">All members introduced by name and role</span>
+              </div>
+
+              <div class="section-sub">Verbal Patient Verification</div>
+              <div class="item">
+                ${box(!printBlank && timeOutChecks.verballyConfirmPatientSiteProcedureConsent)}
+                <span class="item-text">Verbally verified Patient, Site, Procedure & Consent</span>
+              </div>
+              <div class="item">
+                ${box(!printBlank && timeOutChecks.imagingCheckedWithIdentity)}
+                <span class="item-text">Diagnostic images verified with correct ID</span>
+              </div>
+
+              <div class="section-sub">Anticipated Critical Events</div>
+              <div class="item">
+                ${box(!printBlank && timeOutChecks.criticalStepsReviewedSurgeon)}
+                <span class="item-text">Surgeon: Critical / non-routine steps reviewed</span>
+              </div>
+              <div class="item">
+                ${box(!printBlank && timeOutChecks.caseDurationDiscussedSurgeon)}
+                <span class="item-text">Surgeon: Case duration discussed</span>
+              </div>
+              <div class="item">
+                ${box(!printBlank && timeOutChecks.anticipatedBloodLossDiscussedSurgeon)}
+                <span class="item-text">Surgeon: Anticipated blood loss discussed</span>
+              </div>
+              <div class="item">
+                ${box(!printBlank && timeOutChecks.patientSpecificConcernsAnesthetist)}
+                <span class="item-text">Anesthetist: Patient-specific recovery concerns</span>
+              </div>
+              <div class="item">
+                ${box(!printBlank && timeOutChecks.sterilityConfirmedNursing)}
+                <span class="item-text">Nursing: Sterility & indicators confirmed</span>
+              </div>
+              <div class="item">
+                ${box(!printBlank && timeOutChecks.equipmentIssuesAddressedNursing)}
+                <span class="item-text">Nursing: Equipment / implant issues resolved</span>
+              </div>
+
+              <div class="section-sub">Prophylaxis & Display</div>
+              <div style="margin-left: 5px; margin-bottom: 5px;">
+                <strong>Antibiotic Prophylaxis (last 60 min)?</strong><br/>
+                ${radioBox(!printBlank && timeOutChecks.antibioticProphylaxisGiven === 'Yes')} Yes
+                ${radioBox(!printBlank && timeOutChecks.antibioticProphylaxisGiven === 'NA')} N/A
+              </div>
+              <div style="margin-left: 5px; margin-bottom: 5px;">
+                <strong>Essential Imaging Displayed in OR?</strong><br/>
+                ${radioBox(!printBlank && timeOutChecks.essentialImagingDisplayed === 'Yes')} Yes
+                ${radioBox(!printBlank && timeOutChecks.essentialImagingDisplayed === 'NA')} N/A
+              </div>
+            </div>
+
+            <!-- SIGN OUT COLUMN -->
+            <div class="column">
+              <div class="column-header" style="border-bottom: 2px solid #047857; background-color: #d1fae5;">SIGN OUT (Before Leaves OR)</div>
+              
+              <div class="section-sub">Nurse Verbal Confirmations</div>
+              <div class="item">
+                ${box(!printBlank && signOutChecks.procedureNameRecorded)}
+                <span class="item-text">Name of planned procedure recorded</span>
+              </div>
+              <div class="item">
+                ${box(!printBlank && signOutChecks.instrumentSpongeNeedleCountsCorrect)}
+                <span class="item-text">Instrument, sponge and needle counts correct</span>
+              </div>
+              <div class="item">
+                ${box(!printBlank && signOutChecks.specimenLabeledCorrectly)}
+                <span class="item-text">Specimen container labeled (ID & details verified)</span>
+              </div>
+              <div class="item">
+                ${box(!printBlank && signOutChecks.equipmentProblemsAddressed)}
+                <span class="item-text">Any equipment problems identified and resolved</span>
+              </div>
+
+              <div class="section-sub">Post-Operative Plan</div>
+              <div class="item">
+                ${box(!printBlank && signOutChecks.recoveryManagementReviewed)}
+                <span class="item-text">Surgeon, Anesthetist & Nurse review key concerns for recovery and management</span>
+              </div>
+
+              <div class="vitals-box" style="margin-top: 30px; border-color: #047857;">
+                <div class="vitals-title" style="color: #047857;">Audit & Verification Note</div>
+                <div style="font-size: 9px; line-height: 1.3;">
+                  ${printBlank ? '________________________________________________________________________________' : (notes || 'No extra auditing notes documented.')}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <table class="signatures-table">
+            <thead>
+              <tr>
+                <th>Clinical Role</th>
+                <th>Staff Name</th>
+                <th>Digital Signature / Physical Verification Mark</th>
+                <th>Date</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>SURGEON</strong></td>
+                <td>${printBlank ? '____________________' : (signatures.surgeonName || 'N/A')}</td>
+                <td class="sig-line">${printBlank ? '' : (signatures.surgeonSig || '✓ Signed Electronically')}</td>
+                <td>${printBlank ? '__________' : signatures.surgeonDate}</td>
+                <td>${printBlank ? '____:____' : signatures.surgeonTime}</td>
+              </tr>
+              <tr>
+                <td><strong>ANAESTHETIST</strong></td>
+                <td>${printBlank ? '____________________' : (signatures.anesthetistName || 'N/A')}</td>
+                <td class="sig-line">${printBlank ? '' : (signatures.anesthetistSig || '✓ Signed Electronically')}</td>
+                <td>${printBlank ? '__________' : signatures.anesthetistDate}</td>
+                <td>${printBlank ? '____:____' : signatures.anesthetistTime}</td>
+              </tr>
+              <tr>
+                <td><strong>NURSE (Coordinator)</strong></td>
+                <td>${printBlank ? '____________________' : (signatures.nurseName || 'N/A')}</td>
+                <td class="sig-line">${printBlank ? '' : (signatures.nurseSig || '✓ Signed Electronically')}</td>
+                <td>${printBlank ? '__________' : signatures.nurseDate}</td>
+                <td>${printBlank ? '____:____' : signatures.nurseTime}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="footer">
+            This is a clinical security check sheet authorized by GastroPlus Multispeciality Hospital.<br/>
+            Ref: WHO Guidelines for Safe Surgery 2009. Generated on ${new Date().toLocaleString()}.
+          </div>
+
+          <script>
+            window.onload = function() { window.print(); }
+            window.onafterprint = function() { window.close(); }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    toast.success(printBlank ? 'Blank checklist template generated' : 'Completed checklist printed successfully!');
   };
 
   return (
@@ -163,25 +508,29 @@ export default function SurgicalSafetyChecklist({ record, patient, onClose, onSa
               </DialogDescription>
             </div>
 
-            <div className="flex flex-col items-end gap-1 shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-300">Total Progress:</span>
-                <Badge variant="outline" className={`font-black tracking-tight border-none ${percentComplete === 100 ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>
-                  {percentComplete}% Complete ({completedChecksCount}/{totalChecks})
-                </Badge>
-              </div>
-              <div className="w-48 h-2.5 bg-slate-700 rounded-full overflow-hidden mt-1">
-                <div 
-                  className="h-full bg-emerald-400 rounded-full transition-all duration-500 ease-out" 
-                  style={{ width: `${percentComplete}%` }}
-                />
-              </div>
+            <div className="flex flex-wrap gap-2 items-center">
+              <Button 
+                variant="outline" 
+                onClick={() => handlePrint(true)} 
+                className="bg-white/10 hover:bg-white/20 border-white/20 text-white font-bold text-xs gap-1 h-9"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Print Blank Form
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => handlePrint(false)} 
+                className="bg-emerald-500 hover:bg-emerald-600 border-none text-white font-bold text-xs gap-1 h-9"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Print Filled Form
+              </Button>
             </div>
           </div>
         </DialogHeader>
 
         {/* Quick Procedure & Patient summary bar */}
-        <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 border-b border-slate-100">
+        <div className="px-6 py-3.5 grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 border-b border-slate-100">
           <div className="flex items-center gap-2 text-xs">
             <Stethoscope className="w-4 h-4 text-indigo-500" />
             <div>
@@ -193,14 +542,14 @@ export default function SurgicalSafetyChecklist({ record, patient, onClose, onSa
             <UserCheck className="w-4 h-4 text-teal-500" />
             <div>
               <span className="font-bold text-slate-400 block uppercase tracking-widest text-[9px]">Surgeon</span>
-              <span className="font-black text-slate-800">{record.surgeonName || 'Assigned Surgeon'}</span>
+              <span className="font-black text-slate-800">{signatures.surgeonName || 'Assigned Surgeon'}</span>
             </div>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <Clock className="w-4 h-4 text-amber-500" />
             <div>
               <span className="font-bold text-slate-400 block uppercase tracking-widest text-[9px]">Schedule</span>
-              <span className="font-black text-slate-800">{record.date || record.scheduled_date} • {record.startTime || record.scheduled_time || 'Pending'}</span>
+              <span className="font-black text-slate-800">{record.date || record.scheduled_date || 'Today'} • {record.startTime || record.scheduled_time || 'Pending'}</span>
             </div>
           </div>
         </div>
@@ -210,6 +559,7 @@ export default function SurgicalSafetyChecklist({ record, patient, onClose, onSa
           <div className="flex items-center justify-between relative max-w-2xl mx-auto">
             {/* Step 1 */}
             <button 
+              type="button"
               onClick={() => setCurrentStep(1)}
               className="flex flex-col items-center z-10 focus:outline-none"
             >
@@ -218,9 +568,9 @@ export default function SurgicalSafetyChecklist({ record, patient, onClose, onSa
                   ? 'bg-indigo-600 text-white ring-4 ring-indigo-100' 
                   : currentStep > 1 ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400'
               }`}>
-                {Object.values(identityChecks).every(Boolean) ? <Check className="w-4 h-4" /> : '1'}
+                1
               </div>
-              <span className={`text-[10px] font-black uppercase mt-1 tracking-tight ${currentStep === 1 ? 'text-indigo-600' : 'text-slate-400'}`}>Identity</span>
+              <span className={`text-[10px] font-black uppercase mt-1 tracking-tight ${currentStep === 1 ? 'text-indigo-600' : 'text-slate-400'}`}>1. SIGN IN</span>
             </button>
 
             {/* Line 1 */}
@@ -228,6 +578,7 @@ export default function SurgicalSafetyChecklist({ record, patient, onClose, onSa
 
             {/* Step 2 */}
             <button 
+              type="button"
               onClick={() => setCurrentStep(2)}
               className="flex flex-col items-center z-10 focus:outline-none"
             >
@@ -236,9 +587,9 @@ export default function SurgicalSafetyChecklist({ record, patient, onClose, onSa
                   ? 'bg-amber-500 text-white ring-4 ring-amber-100' 
                   : currentStep > 2 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-400'
               }`}>
-                {siteChecks.siteMarked && siteChecks.siteCorrectlyIdentified ? <Check className="w-4 h-4" /> : '2'}
+                2
               </div>
-              <span className={`text-[10px] font-black uppercase mt-1 tracking-tight ${currentStep === 2 ? 'text-amber-500' : 'text-slate-400'}`}>Site Mark</span>
+              <span className={`text-[10px] font-black uppercase mt-1 tracking-tight ${currentStep === 2 ? 'text-amber-500' : 'text-slate-400'}`}>2. TIME OUT</span>
             </button>
 
             {/* Line 2 */}
@@ -246,381 +597,495 @@ export default function SurgicalSafetyChecklist({ record, patient, onClose, onSa
 
             {/* Step 3 */}
             <button 
+              type="button"
               onClick={() => setCurrentStep(3)}
               className="flex flex-col items-center z-10 focus:outline-none"
             >
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
                 currentStep === 3 
-                  ? 'bg-sky-500 text-white ring-4 ring-sky-100' 
-                  : currentStep > 3 ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-400'
-              }`}>
-                {Object.values(equipmentChecks).every(Boolean) ? <Check className="w-4 h-4" /> : '3'}
-              </div>
-              <span className={`text-[10px] font-black uppercase mt-1 tracking-tight ${currentStep === 3 ? 'text-sky-500' : 'text-slate-400'}`}>Equipment</span>
-            </button>
-
-            {/* Line 3 */}
-            <div className={`flex-1 h-1 mx-2 rounded ${currentStep > 3 ? 'bg-sky-500' : 'bg-slate-100'}`} />
-
-            {/* Step 4 */}
-            <button 
-              onClick={() => setCurrentStep(4)}
-              className="flex flex-col items-center z-10 focus:outline-none"
-            >
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
-                currentStep === 4 
                   ? 'bg-emerald-600 text-white ring-4 ring-emerald-100' 
                   : 'bg-slate-100 text-slate-400'
               }`}>
-                {Object.values(signOffChecks).every(Boolean) ? <Check className="w-4 h-4" /> : '4'}
+                3
               </div>
-              <span className={`text-[10px] font-black uppercase mt-1 tracking-tight ${currentStep === 4 ? 'text-emerald-600' : 'text-slate-400'}`}>Sign-Off</span>
+              <span className={`text-[10px] font-black uppercase mt-1 tracking-tight ${currentStep === 3 ? 'text-emerald-600' : 'text-slate-400'}`}>3. SIGN OUT</span>
             </button>
           </div>
         </div>
 
         {/* Step Contents */}
         <div className="flex-1 overflow-y-auto p-6 min-h-0 bg-slate-50/50">
-          {/* STEP 1: PATIENT IDENTITY VERIFICATION */}
+          {/* STEP 1: SIGN IN */}
           {currentStep === 1 && (
             <div className="space-y-4 animate-fadeIn">
-              <div className="flex items-center gap-2 p-3.5 rounded-xl bg-indigo-50 border border-indigo-100">
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-indigo-50 border border-indigo-100">
                 <ShieldAlert className="w-5 h-5 text-indigo-600 shrink-0" />
                 <p className="text-xs font-bold text-indigo-800 leading-relaxed">
-                  <span className="uppercase font-black mr-1">Phase 1: Sign-In Protocol</span>
-                  Before induction of anesthesia, the coordinator must verbally confirm the patient's identity, surgical site, planned procedure, and written consent.
+                  <span className="uppercase font-black mr-1">Phase 1: SIGN IN (Before induction of anaesthesia)</span>
+                  Verify patient details, marking, anesthesia risks, and record baseline vitals.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${identityChecks.nameVerified ? 'border-indigo-200 bg-indigo-50/10' : 'border-slate-200 bg-white'}`}>
-                  <Checkbox 
-                    checked={identityChecks.nameVerified}
-                    onCheckedChange={(checked) => setIdentityChecks(prev => ({ ...prev, nameVerified: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
-                  />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Patient's Name is Confirmed</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">Verify verbally with patient or legal guardian</p>
-                  </div>
-                </label>
-
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${identityChecks.mrnVerified ? 'border-indigo-200 bg-indigo-50/10' : 'border-slate-200 bg-white'}`}>
-                  <Checkbox 
-                    checked={identityChecks.mrnVerified}
-                    onCheckedChange={(checked) => setIdentityChecks(prev => ({ ...prev, mrnVerified: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
-                  />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Medical Record Number (MRN) Matches</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">Verify matches of case sheet & ID bracelet</p>
-                  </div>
-                </label>
-
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${identityChecks.consentFormSigned ? 'border-indigo-200 bg-indigo-50/10' : 'border-slate-200 bg-white'}`}>
-                  <Checkbox 
-                    checked={identityChecks.consentFormSigned}
-                    onCheckedChange={(checked) => setIdentityChecks(prev => ({ ...prev, consentFormSigned: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
-                  />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Written Informed Consent Secured</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">Explicit signature of patient and doctor on file</p>
-                  </div>
-                </label>
-
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${identityChecks.idBandSecured ? 'border-indigo-200 bg-indigo-50/10' : 'border-slate-200 bg-white'}`}>
-                  <Checkbox 
-                    checked={identityChecks.idBandSecured}
-                    onCheckedChange={(checked) => setIdentityChecks(prev => ({ ...prev, idBandSecured: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
-                  />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">ID Barcode/Band Placed on Patient</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">Double check secure wrist/ankle attachment</p>
-                  </div>
-                </label>
-
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${identityChecks.procedureConfirmed ? 'border-indigo-200 bg-indigo-50/10' : 'border-slate-200 bg-white'}`}>
-                  <Checkbox 
-                    checked={identityChecks.procedureConfirmed}
-                    onCheckedChange={(checked) => setIdentityChecks(prev => ({ ...prev, procedureConfirmed: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
-                  />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Surgical Procedure Confirmed</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">Check specific clinical system records match</p>
-                  </div>
-                </label>
-
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${identityChecks.allergyStatusChecked ? 'border-indigo-200 bg-indigo-50/10' : 'border-slate-200 bg-white'}`}>
-                  <Checkbox 
-                    checked={identityChecks.allergyStatusChecked}
-                    onCheckedChange={(checked) => setIdentityChecks(prev => ({ ...prev, allergyStatusChecked: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
-                  />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Allergy Status Checked & Logged</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">Confirm known drug or latex hyper-sensitivities</p>
-                  </div>
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 2: SURGICAL SITE MARKING */}
-          {currentStep === 2 && (
-            <div className="space-y-4 animate-fadeIn">
-              <div className="flex items-center gap-2 p-3.5 rounded-xl bg-amber-50 border border-amber-100">
-                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-                <p className="text-xs font-bold text-amber-800 leading-relaxed">
-                  <span className="uppercase font-black mr-1">Phase 2: Surgical Site Validation</span>
-                  Verify that the surgical site has been physically marked by the clinician performing the surgery. If not marked, document why (e.g., midline laparotomy).
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${siteChecks.siteMarked ? 'border-amber-200 bg-amber-50/10' : 'border-slate-200 bg-white'}`}>
-                  <Checkbox 
-                    checked={siteChecks.siteMarked}
-                    onCheckedChange={(checked) => setSiteChecks(prev => ({ ...prev, siteMarked: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
-                  />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Surgical Site is Visibly Marked</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">Clinician mark must remain visible after prep and draping</p>
-                  </div>
-                </label>
-
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${siteChecks.siteCorrectlyIdentified ? 'border-amber-200 bg-amber-50/10' : 'border-slate-200 bg-white'}`}>
-                  <Checkbox 
-                    checked={siteChecks.siteCorrectlyIdentified}
-                    onCheckedChange={(checked) => setSiteChecks(prev => ({ ...prev, siteCorrectlyIdentified: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
-                  />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Right/Left Lateralization Confirmed</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">Verify correct side/limb/digit against diagnostic records</p>
-                  </div>
-                </label>
-
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${siteChecks.surgicalSiteConfirmedWithPatient ? 'border-amber-200 bg-amber-50/10' : 'border-slate-200 bg-white'}`}>
-                  <Checkbox 
-                    checked={siteChecks.surgicalSiteConfirmedWithPatient}
-                    onCheckedChange={(checked) => setSiteChecks(prev => ({ ...prev, surgicalSiteConfirmedWithPatient: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
-                  />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Surgical Site Confirmed with Patient</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">Patient verbally agrees that this is the correct target site</p>
-                  </div>
-                </label>
-
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${siteChecks.consentMatchesSite ? 'border-amber-200 bg-amber-50/10' : 'border-slate-200 bg-white'}`}>
-                  <Checkbox 
-                    checked={siteChecks.consentMatchesSite}
-                    onCheckedChange={(checked) => setSiteChecks(prev => ({ ...prev, consentMatchesSite: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
-                  />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Consent Details Match Site Mark</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">The written surgical consent forms align perfectly with the mark</p>
-                  </div>
-                </label>
-
-                <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-2">
-                  <Label className="text-xs font-black text-slate-700 uppercase tracking-tight">If NOT marked, specify the clinical justification:</Label>
+              {/* Vitals Input Box */}
+              <div className="bg-white p-4 rounded-xl border border-slate-200/60 shadow-xs grid grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-slate-700">Pulse Rate (PR) *</Label>
                   <Input 
-                    placeholder="e.g. Endoscopic procedure, single midline incision, or bilateral tooth extraction..."
-                    value={siteChecks.notApplicableReason}
-                    onChange={(e) => setSiteChecks(prev => ({ ...prev, notApplicableReason: e.target.value }))}
-                    className="text-xs font-semibold bg-slate-50/50 border-slate-200"
+                    placeholder="e.g. 78 bpm" 
+                    value={vitals.pr} 
+                    onChange={e => setVitals({...vitals, pr: e.target.value})}
+                    className="text-xs font-semibold h-9"
                   />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-slate-700">Blood Pressure (BP) *</Label>
+                  <Input 
+                    placeholder="e.g. 120/80 mmHg" 
+                    value={vitals.bp} 
+                    onChange={e => setVitals({...vitals, bp: e.target.value})}
+                    className="text-xs font-semibold h-9"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-slate-700">Oxygen Saturation (SpO2) *</Label>
+                  <Input 
+                    placeholder="e.g. 98%" 
+                    value={vitals.spo2} 
+                    onChange={e => setVitals({...vitals, spo2: e.target.value})}
+                    className="text-xs font-semibold h-9"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
+                  <Checkbox 
+                    checked={signInChecks.patientConfirmedIdentity}
+                    onCheckedChange={checked => setSignInChecks({...signInChecks, patientConfirmedIdentity: !!checked})}
+                  />
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Patient Confirmed Identity</p>
+                    <p className="text-slate-500">Verbally checked full legal name with ID band</p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
+                  <Checkbox 
+                    checked={signInChecks.patientConfirmedSite}
+                    onCheckedChange={checked => setSignInChecks({...signInChecks, patientConfirmedSite: !!checked})}
+                  />
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Surgical Site Confirmed</p>
+                    <p className="text-slate-500">Patient verbally confirmed scheduled incision area</p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
+                  <Checkbox 
+                    checked={signInChecks.patientConfirmedProcedure}
+                    onCheckedChange={checked => setSignInChecks({...signInChecks, patientConfirmedProcedure: !!checked})}
+                  />
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Surgical Procedure Confirmed</p>
+                    <p className="text-slate-500">Double verified target diagnostic or therapeutic procedure</p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
+                  <Checkbox 
+                    checked={signInChecks.patientConfirmedConsent}
+                    onCheckedChange={checked => setSignInChecks({...signInChecks, patientConfirmedConsent: !!checked})}
+                  />
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Written Informed Consent Verified</p>
+                    <p className="text-slate-500">Signed clinical consent form physically verified in file</p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
+                  <Checkbox 
+                    checked={signInChecks.siteMarkedOrNA}
+                    onCheckedChange={checked => setSignInChecks({...signInChecks, siteMarkedOrNA: !!checked})}
+                  />
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Surgical Site Marked / N/A</p>
+                    <p className="text-slate-500">Visible permanent skin marker checked (or not applicable)</p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
+                  <Checkbox 
+                    checked={signInChecks.anaesthesiaSafetyCheckCompleted}
+                    onCheckedChange={checked => setSignInChecks({...signInChecks, anaesthesiaSafetyCheckCompleted: !!checked})}
+                  />
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Anaesthesia Machine Safety Check</p>
+                    <p className="text-slate-500">Suction, gases, ventilator and drug checklist complete</p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
+                  <Checkbox 
+                    checked={signInChecks.pulseOximeterFunctioning}
+                    onCheckedChange={checked => setSignInChecks({...signInChecks, pulseOximeterFunctioning: !!checked})}
+                  />
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Pulse Oximeter Placed & Active</p>
+                    <p className="text-slate-500">Verify monitor sound is audible and reading oxygen baseline</p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
+                  <Checkbox 
+                    checked={signInChecks.imagingAndInvestigationAvailable}
+                    onCheckedChange={checked => setSignInChecks({...signInChecks, imagingAndInvestigationAvailable: !!checked})}
+                  />
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Imaging & Diagnostic Reports Present</p>
+                    <p className="text-slate-500">CT, MRI, X-rays or blood records open in theatre</p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Radio options for risks */}
+              <div className="bg-white p-4 rounded-xl border border-slate-200/60 space-y-4 text-xs font-semibold">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="font-bold text-slate-800">1. Does the patient have a Known Allergy?</Label>
+                    <div className="flex gap-4 mt-1">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input 
+                          type="radio" 
+                          name="allergy" 
+                          checked={signInChecks.knownAllergy === 'No'}
+                          onChange={() => setSignInChecks({...signInChecks, knownAllergy: 'No'})}
+                        />
+                        No
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input 
+                          type="radio" 
+                          name="allergy" 
+                          checked={signInChecks.knownAllergy === 'Yes'}
+                          onChange={() => setSignInChecks({...signInChecks, knownAllergy: 'Yes'})}
+                        />
+                        Yes
+                      </label>
+                    </div>
+                    {signInChecks.knownAllergy === 'Yes' && (
+                      <Input 
+                        placeholder="Specify allergen (e.g. Penicillin, Latex)"
+                        value={signInChecks.allergyDetails}
+                        onChange={e => setSignInChecks({...signInChecks, allergyDetails: e.target.value})}
+                        className="text-xs h-8 mt-1.5"
+                      />
+                    )}
+                  </div>
+
+                  <div>
+                    <Label className="font-bold text-slate-800">2. Difficult Airway / Aspiration Risk?</Label>
+                    <div className="flex gap-4 mt-1">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input 
+                          type="radio" 
+                          name="airway" 
+                          checked={signInChecks.difficultAirwayRisk === 'No'}
+                          onChange={() => setSignInChecks({...signInChecks, difficultAirwayRisk: 'No'})}
+                        />
+                        No
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input 
+                          type="radio" 
+                          name="airway" 
+                          checked={signInChecks.difficultAirwayRisk === 'Yes'}
+                          onChange={() => setSignInChecks({...signInChecks, difficultAirwayRisk: 'Yes'})}
+                        />
+                        Yes (Equipment & help is available)
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="font-bold text-slate-800">3. Risk of &gt;500ml Blood Loss?</Label>
+                    <div className="flex gap-4 mt-1">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input 
+                          type="radio" 
+                          name="blood" 
+                          checked={signInChecks.bloodLossRisk === 'No'}
+                          onChange={() => setSignInChecks({...signInChecks, bloodLossRisk: 'No'})}
+                        />
+                        No
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input 
+                          type="radio" 
+                          name="blood" 
+                          checked={signInChecks.bloodLossRisk === 'Yes'}
+                          onChange={() => setSignInChecks({...signInChecks, bloodLossRisk: 'Yes'})}
+                        />
+                        Yes (2 IV lines & blood planned)
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="font-bold text-slate-800">4. Moderate / High DVT Risk?</Label>
+                    <div className="flex gap-4 mt-1">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input 
+                          type="radio" 
+                          name="dvt" 
+                          checked={signInChecks.dvtRisk === 'No'}
+                          onChange={() => setSignInChecks({...signInChecks, dvtRisk: 'No'})}
+                        />
+                        No
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input 
+                          type="radio" 
+                          name="dvt" 
+                          checked={signInChecks.dvtRisk === 'Yes'}
+                          onChange={() => setSignInChecks({...signInChecks, dvtRisk: 'Yes'})}
+                        />
+                        Yes (Intraop compression planned)
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* STEP 3: EQUIPMENT & ANESTHESIA READINESS */}
-          {currentStep === 3 && (
+          {/* STEP 2: TIME OUT */}
+          {currentStep === 2 && (
             <div className="space-y-4 animate-fadeIn">
-              <div className="flex items-center gap-2 p-3.5 rounded-xl bg-sky-50 border border-sky-100">
-                <Wrench className="w-5 h-5 text-sky-600 shrink-0" />
-                <p className="text-xs font-bold text-sky-800 leading-relaxed">
-                  <span className="uppercase font-black mr-1">Phase 3: Equipment & Patient Systems</span>
-                  Ensure the anesthesia machines are safe, vital monitors are functioning, sterile indicators are checked, and essential instrumentation is ready.
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 border border-amber-100">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                <p className="text-xs font-bold text-amber-800 leading-relaxed">
+                  <span className="uppercase font-black mr-1">Phase 2: TIME OUT (Before skin incision)</span>
+                  Verbal team time-out immediately before incision. Verify correct patient, site, antibiotics and anticipated critical steps.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${equipmentChecks.anesthesiaMachineChecked ? 'border-sky-200 bg-sky-50/10' : 'border-slate-200 bg-white'}`}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
                   <Checkbox 
-                    checked={equipmentChecks.anesthesiaMachineChecked}
-                    onCheckedChange={(checked) => setEquipmentChecks(prev => ({ ...prev, anesthesiaMachineChecked: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
+                    checked={timeOutChecks.teamIntroduced}
+                    onCheckedChange={checked => setTimeOutChecks({...timeOutChecks, teamIntroduced: !!checked})}
                   />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Anesthesia Machine Check</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">Machine safety test run, drug checks, suction, and gas logs</p>
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Team Introductions Complete</p>
+                    <p className="text-slate-500">Every member introduced themselves by name and role</p>
                   </div>
                 </label>
 
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${equipmentChecks.airwayAspirationChecked ? 'border-sky-200 bg-sky-50/10' : 'border-slate-200 bg-white'}`}>
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
                   <Checkbox 
-                    checked={equipmentChecks.airwayAspirationChecked}
-                    onCheckedChange={(checked) => setEquipmentChecks(prev => ({ ...prev, airwayAspirationChecked: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
+                    checked={timeOutChecks.verballyConfirmPatientSiteProcedureConsent}
+                    onCheckedChange={checked => setTimeOutChecks({...timeOutChecks, verballyConfirmPatientSiteProcedureConsent: !!checked})}
                   />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Difficult Airway Checked</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">Airway / aspiration risk assessed; rescue devices at hand</p>
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Verbal Clinical Confirmation</p>
+                    <p className="text-slate-500">Surgeon, Anaesthetist & Nurse confirmed Patient, Site, Procedure & Consent</p>
                   </div>
                 </label>
 
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${equipmentChecks.pulseOximeterFunctioning ? 'border-sky-200 bg-sky-50/10' : 'border-slate-200 bg-white'}`}>
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
                   <Checkbox 
-                    checked={equipmentChecks.pulseOximeterFunctioning}
-                    onCheckedChange={(checked) => setEquipmentChecks(prev => ({ ...prev, pulseOximeterFunctioning: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
+                    checked={timeOutChecks.imagingCheckedWithIdentity}
+                    onCheckedChange={checked => setTimeOutChecks({...timeOutChecks, imagingCheckedWithIdentity: !!checked})}
                   />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Pulse Oximeter Active & Audible</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">Placed on patient and reading oxygen saturation accurately</p>
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Diagnostic Imaging Crosscheck</p>
+                    <p className="text-slate-500">Correct patient diagnostic scans displayed in OT room</p>
                   </div>
                 </label>
 
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${equipmentChecks.sterileIndicatorConfirmed ? 'border-sky-200 bg-sky-50/10' : 'border-slate-200 bg-white'}`}>
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
                   <Checkbox 
-                    checked={equipmentChecks.sterileIndicatorConfirmed}
-                    onCheckedChange={(checked) => setEquipmentChecks(prev => ({ ...prev, sterileIndicatorConfirmed: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
+                    checked={timeOutChecks.criticalStepsReviewedSurgeon}
+                    onCheckedChange={checked => setTimeOutChecks({...timeOutChecks, criticalStepsReviewedSurgeon: !!checked})}
                   />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Sterility Indicator Confirmed</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">CSSD chemical indicator strip inspected and verified correct</p>
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Surgeon: Non-Routine Steps Discussed</p>
+                    <p className="text-slate-500">Surgeon reviewed critical parts, bleeding risk or anatomies</p>
                   </div>
                 </label>
 
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${equipmentChecks.diathermyGroundingSecured ? 'border-sky-200 bg-sky-50/10' : 'border-slate-200 bg-white'}`}>
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
                   <Checkbox 
-                    checked={equipmentChecks.diathermyGroundingSecured}
-                    onCheckedChange={(checked) => setEquipmentChecks(prev => ({ ...prev, diathermyGroundingSecured: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
+                    checked={timeOutChecks.caseDurationDiscussedSurgeon}
+                    onCheckedChange={checked => setTimeOutChecks({...timeOutChecks, caseDurationDiscussedSurgeon: !!checked})}
                   />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Diathermy Patient Plate Grounded</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">Cautery return electrode pad placed properly on dry muscle mass</p>
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Surgeon: Estimated Case Duration</p>
+                    <p className="text-slate-500">Estimated duration of surgical procedure has been aligned</p>
                   </div>
                 </label>
 
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${equipmentChecks.implantsAvailable ? 'border-sky-200 bg-sky-50/10' : 'border-slate-200 bg-white'}`}>
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
                   <Checkbox 
-                    checked={equipmentChecks.implantsAvailable}
-                    onCheckedChange={(checked) => setEquipmentChecks(prev => ({ ...prev, implantsAvailable: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
+                    checked={timeOutChecks.anticipatedBloodLossDiscussedSurgeon}
+                    onCheckedChange={checked => setTimeOutChecks({...timeOutChecks, anticipatedBloodLossDiscussedSurgeon: !!checked})}
                   />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Surgical Implants & Hardware</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">Special implants, stents, or mesh are sterile and verified</p>
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Surgeon: Blood Loss Estimate</p>
+                    <p className="text-slate-500">Anticipated intra-operative blood volume loss discussed</p>
                   </div>
                 </label>
 
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${equipmentChecks.equipmentCalibrated ? 'border-sky-200 bg-sky-50/10' : 'border-slate-200 bg-white'}`}>
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
                   <Checkbox 
-                    checked={equipmentChecks.equipmentCalibrated}
-                    onCheckedChange={(checked) => setEquipmentChecks(prev => ({ ...prev, equipmentCalibrated: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
+                    checked={timeOutChecks.patientSpecificConcernsAnesthetist}
+                    onCheckedChange={checked => setTimeOutChecks({...timeOutChecks, patientSpecificConcernsAnesthetist: !!checked})}
                   />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Telemetry & Monitor Calibration</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">All vital scanners and surgical laser grids calibrated recently</p>
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Anaesthetist: Patient Patient-Specific Risks</p>
+                    <p className="text-slate-500">Anesthesia specialist reviewed extubation plans, cardiac or airway logs</p>
                   </div>
                 </label>
+
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
+                  <Checkbox 
+                    checked={timeOutChecks.sterilityConfirmedNursing}
+                    onCheckedChange={checked => setTimeOutChecks({...timeOutChecks, sterilityConfirmedNursing: !!checked})}
+                  />
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Nursing: CSSD Sterility Confirmed</p>
+                    <p className="text-slate-500">Verified autoclaved visual indicator strips matches CSSD log</p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
+                  <Checkbox 
+                    checked={timeOutChecks.equipmentIssuesAddressedNursing}
+                    onCheckedChange={checked => setTimeOutChecks({...timeOutChecks, equipmentIssuesAddressedNursing: !!checked})}
+                  />
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Nursing: Equipment & Implants Ready</p>
+                    <p className="text-slate-500">Confirmed availability of all special materials or laparoscopy scopes</p>
+                  </div>
+                </label>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border border-slate-200/60 grid grid-cols-2 gap-4 text-xs font-semibold">
+                <div>
+                  <Label className="font-bold text-slate-800">Antibiotic Prophylaxis (last 60 min)?</Label>
+                  <div className="flex gap-4 mt-1">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input 
+                        type="radio" 
+                        name="prophylaxis" 
+                        checked={timeOutChecks.antibioticProphylaxisGiven === 'Yes'}
+                        onChange={() => setTimeOutChecks({...timeOutChecks, antibioticProphylaxisGiven: 'Yes'})}
+                      />
+                      Yes, Administered
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input 
+                        type="radio" 
+                        name="prophylaxis" 
+                        checked={timeOutChecks.antibioticProphylaxisGiven === 'NA'}
+                        onChange={() => setTimeOutChecks({...timeOutChecks, antibioticProphylaxisGiven: 'NA'})}
+                      />
+                      Not Applicable
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="font-bold text-slate-800">Essential Clinical Imaging Displayed?</Label>
+                  <div className="flex gap-4 mt-1">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input 
+                        type="radio" 
+                        name="essential_img" 
+                        checked={timeOutChecks.essentialImagingDisplayed === 'Yes'}
+                        onChange={() => setTimeOutChecks({...timeOutChecks, essentialImagingDisplayed: 'Yes'})}
+                      />
+                      Yes, Displayed
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input 
+                        type="radio" 
+                        name="essential_img" 
+                        checked={timeOutChecks.essentialImagingDisplayed === 'NA'}
+                        onChange={() => setTimeOutChecks({...timeOutChecks, essentialImagingDisplayed: 'NA'})}
+                      />
+                      Not Applicable
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
-          {/* STEP 4: FINAL SIGN-OFF & TEAM COORDINATION */}
-          {currentStep === 4 && (
+          {/* STEP 3: SIGN OUT */}
+          {currentStep === 3 && (
             <div className="space-y-4 animate-fadeIn">
-              <div className="flex items-center gap-2 p-3.5 rounded-xl bg-emerald-50 border border-emerald-100">
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-100">
                 <Sparkles className="w-5 h-5 text-emerald-600 shrink-0" />
                 <p className="text-xs font-bold text-emerald-800 leading-relaxed">
-                  <span className="uppercase font-black mr-1">Phase 4: Verbal Time-Out & Sign-Out</span>
-                  Confirm surgical steps, blood availability, counts of tools/swabs, specimen labeling, and post-operative safety considerations.
+                  <span className="uppercase font-black mr-1">Phase 3: SIGN OUT (Before leaving Operating Theatre)</span>
+                  Nurse verbal confirmation with surgical team on recorded procedure, instrument counts, specimens, and post-op plans.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${signOffChecks.teamIntroduced ? 'border-emerald-200 bg-emerald-50/10' : 'border-slate-200 bg-white'}`}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
                   <Checkbox 
-                    checked={signOffChecks.teamIntroduced}
-                    onCheckedChange={(checked) => setSignOffChecks(prev => ({ ...prev, teamIntroduced: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                    checked={signOutChecks.procedureNameRecorded}
+                    onCheckedChange={checked => setSignOutChecks({...signOutChecks, procedureNameRecorded: !!checked})}
                   />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Surgical Team Introduction Pause</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">All members introduced themselves by name and clinical role</p>
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Surgical Procedure Name Logged</p>
+                    <p className="text-slate-500">Nurse verified exact operation is written in clinical record</p>
                   </div>
                 </label>
 
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${signOffChecks.bloodLossRiskAssessed ? 'border-emerald-200 bg-emerald-50/10' : 'border-slate-200 bg-white'}`}>
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
                   <Checkbox 
-                    checked={signOffChecks.bloodLossRiskAssessed}
-                    onCheckedChange={(checked) => setSignOffChecks(prev => ({ ...prev, bloodLossRiskAssessed: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                    checked={signOutChecks.instrumentSpongeNeedleCountsCorrect}
+                    onCheckedChange={checked => setSignOutChecks({...signOutChecks, instrumentSpongeNeedleCountsCorrect: !!checked})}
                   />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Anticipated Blood Loss Assessment</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">If yes, confirm 2 wide-bore IV lines/fluids and blood bags ready</p>
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Instrument, Sponge & Needle Count Correct</p>
+                    <p className="text-slate-500">Fully tallied and verified before closure (or not applicable)</p>
                   </div>
                 </label>
 
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${signOffChecks.antibioticProphylaxisGiven ? 'border-emerald-200 bg-emerald-50/10' : 'border-slate-200 bg-white'}`}>
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
                   <Checkbox 
-                    checked={signOffChecks.antibioticProphylaxisGiven}
-                    onCheckedChange={(checked) => setSignOffChecks(prev => ({ ...prev, antibioticProphylaxisGiven: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                    checked={signOutChecks.specimenLabeledCorrectly}
+                    onCheckedChange={checked => setSignOutChecks({...signOutChecks, specimenLabeledCorrectly: !!checked})}
                   />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Prophylactic Antibiotics (last 60 min)</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">Documented administration or confirmed clinically not needed</p>
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Specimen Labeled Correctly</p>
+                    <p className="text-slate-500">Container has patient's MRN, name, and clinical details</p>
                   </div>
                 </label>
 
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${signOffChecks.specimenLabelingPlanChecked ? 'border-emerald-200 bg-emerald-50/10' : 'border-slate-200 bg-white'}`}>
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
                   <Checkbox 
-                    checked={signOffChecks.specimenLabelingPlanChecked}
-                    onCheckedChange={(checked) => setSignOffChecks(prev => ({ ...prev, specimenLabelingPlanChecked: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                    checked={signOutChecks.equipmentProblemsAddressed}
+                    onCheckedChange={checked => setSignOutChecks({...signOutChecks, equipmentProblemsAddressed: !!checked})}
                   />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Specimen Labeling Protocol Ready</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">Verbalized specimen labeling including patient name & ID</p>
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Equipment / OR Problems Logged</p>
+                    <p className="text-slate-500">Any biomedical machinery faults reported (or mark as clean)</p>
                   </div>
                 </label>
 
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${signOffChecks.spongeInstrumentCountCorrect ? 'border-emerald-200 bg-emerald-50/10' : 'border-slate-200 bg-white'}`}>
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white md:col-span-2">
                   <Checkbox 
-                    checked={signOffChecks.spongeInstrumentCountCorrect}
-                    onCheckedChange={(checked) => setSignOffChecks(prev => ({ ...prev, spongeInstrumentCountCorrect: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                    checked={signOutChecks.recoveryManagementReviewed}
+                    onCheckedChange={checked => setSignOutChecks({...signOutChecks, recoveryManagementReviewed: !!checked})}
                   />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Sponge & Instrument Counts Checked</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">Confirm pre-closure and final counts match initial counts</p>
-                  </div>
-                </label>
-
-                <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${signOffChecks.criticalConcernsReviewed ? 'border-emerald-200 bg-emerald-50/10' : 'border-slate-200 bg-white'}`}>
-                  <Checkbox 
-                    checked={signOffChecks.criticalConcernsReviewed}
-                    onCheckedChange={(checked) => setSignOffChecks(prev => ({ ...prev, criticalConcernsReviewed: !!checked }))}
-                    className="mt-0.5 border-slate-300 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
-                  />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-extrabold text-slate-900">Post-Op Recovery Concerns Reviewed</p>
-                    <p className="text-[11px] text-slate-500 font-semibold">Surgeon, anesthetist, and nurse review critical recovery key plans</p>
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-extrabold text-slate-900">Post-Operative Recovery Plan Reviewed</p>
+                    <p className="text-slate-500">Surgeon, Anaesthetist and Nurse reviewed main postoperative concerns and ICU/Recovery destination</p>
                   </div>
                 </label>
               </div>
@@ -628,24 +1093,66 @@ export default function SurgicalSafetyChecklist({ record, patient, onClose, onSa
           )}
         </div>
 
-        {/* Audit Sign-off Form with Coordinator name and general notes */}
-        <div className="p-6 border-t border-slate-100 bg-slate-50 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label className="text-xs font-black text-slate-700 uppercase tracking-tight">Checklist Coordinator (Nurse / Surgeon Name) <span className="text-rose-500 font-extrabold">*</span></Label>
-            <Input 
-              placeholder="e.g. Charge Nurse Aarti Verma"
-              value={coordinator}
-              onChange={(e) => setCoordinator(e.target.value)}
-              className="text-xs h-10 bg-white border-slate-200 font-bold text-slate-900 shadow-sm focus:border-indigo-500"
-            />
+        {/* Audit Sign-off Form with coordinator names and signatures */}
+        <div className="p-6 border-t border-slate-100 bg-slate-50 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <Label className="text-[11px] font-black text-slate-700 uppercase">Surgeon Name & Signature</Label>
+              <Input 
+                placeholder="Dr. Ashay Rathore"
+                value={signatures.surgeonName}
+                onChange={e => setSignatures({...signatures, surgeonName: e.target.value})}
+                className="text-xs h-9 bg-white border-slate-200 font-bold"
+              />
+              <Input 
+                placeholder="Type Signature to Sign"
+                value={signatures.surgeonSig}
+                onChange={e => setSignatures({...signatures, surgeonSig: e.target.value})}
+                className="text-xs h-8 bg-white border-slate-200 italic font-serif"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[11px] font-black text-slate-700 uppercase">Anaesthetist Name & Signature</Label>
+              <Input 
+                placeholder="Dr. Navodita Tiwari"
+                value={signatures.anesthetistName}
+                onChange={e => setSignatures({...signatures, anesthetistName: e.target.value})}
+                className="text-xs h-9 bg-white border-slate-200 font-bold"
+              />
+              <Input 
+                placeholder="Type Signature to Sign"
+                value={signatures.anesthetistSig}
+                onChange={e => setSignatures({...signatures, anesthetistSig: e.target.value})}
+                className="text-xs h-8 bg-white border-slate-200 italic font-serif"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[11px] font-black text-slate-700 uppercase">Nurse Coordinator Name & Sig *</Label>
+              <Input 
+                placeholder="Nurse Priyanka Parte"
+                value={signatures.nurseName}
+                onChange={e => setSignatures({...signatures, nurseName: e.target.value})}
+                className="text-xs h-9 bg-white border-slate-200 font-bold"
+                required
+              />
+              <Input 
+                placeholder="Type Signature to Sign"
+                value={signatures.nurseSig}
+                onChange={e => setSignatures({...signatures, nurseSig: e.target.value})}
+                className="text-xs h-8 bg-white border-slate-200 italic font-serif"
+              />
+            </div>
           </div>
+
           <div className="space-y-1.5">
-            <Label className="text-xs font-black text-slate-700 uppercase tracking-tight">Safety Auditing & Equipment Readiness Notes</Label>
+            <Label className="text-[11px] font-black text-slate-700 uppercase">Special Safety Comments / Audits</Label>
             <Input 
-              placeholder="e.g. Difficulty airway equipment verified, sterile tags matched..."
+              placeholder="e.g. Challenging airway handled with backup scope; CSSD autoclave log batch #74581 confirmed..."
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="text-xs h-10 bg-white border-slate-200 font-semibold text-slate-800 shadow-sm focus:border-indigo-500"
+              onChange={e => setNotes(e.target.value)}
+              className="text-xs h-9 bg-white border-slate-200"
             />
           </div>
         </div>
@@ -659,15 +1166,15 @@ export default function SurgicalSafetyChecklist({ record, patient, onClose, onSa
             className="font-bold border-slate-200 gap-1 text-xs"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Previous Phase
+            Previous
           </Button>
 
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={onClose} className="font-bold text-xs text-slate-500 hover:bg-slate-100">
-              Close Preview
+              Close
             </Button>
 
-            {currentStep < 4 ? (
+            {currentStep < 3 ? (
               <Button 
                 onClick={nextStep} 
                 className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1 font-bold text-xs px-5"
@@ -681,7 +1188,7 @@ export default function SurgicalSafetyChecklist({ record, patient, onClose, onSa
                 className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-bold text-xs px-6"
               >
                 <Save className="w-4 h-4" />
-                Authorize & Save Checklist
+                Save WHO Checklist
               </Button>
             )}
           </div>
