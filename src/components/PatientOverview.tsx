@@ -2840,26 +2840,34 @@ View full details at: ${shareUrl}
 
       {/* OT Consent Management Modal for Selected Patient */}
       <Dialog open={isConsentOpen} onOpenChange={setIsConsentOpen}>
-        <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto bg-white p-6 rounded-2xl shadow-2xl border-none">
-          <DialogHeader className="pb-3 border-b border-slate-100">
-            <DialogTitle className="text-xl font-black text-slate-800 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-emerald-600" />
-              Patient Informed Consents: {selectedPatient?.name}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <OTConsentManagement patientId={selectedPatient?.id} />
+        <DialogContent className="fixed inset-0 top-0 left-0 translate-x-0 translate-y-0 w-screen h-screen max-w-none max-h-none sm:max-w-none rounded-none m-0 p-0 flex flex-col bg-slate-50 overflow-hidden border-none shadow-none z-50">
+          <div className="bg-white border-b border-slate-100 p-6 flex items-center justify-between shrink-0">
+            <div className="space-y-1">
+              <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-emerald-600" />
+                Patient Informed Consents: {selectedPatient?.name}
+              </h2>
+              <p className="text-xs text-slate-500 font-medium">Manage clinical authorizations, anesthetist blocks, and ICU designations.</p>
+            </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setIsConsentOpen(false)}>
+              <Plus className="w-4 h-4 rotate-45" />
+            </Button>
           </div>
-          <DialogFooter className="pt-3 border-t border-slate-100">
-            <Button variant="outline" className="text-xs h-9 font-bold" onClick={() => setIsConsentOpen(false)}>Close Consent Panel</Button>
-          </DialogFooter>
+          <div className="flex-1 overflow-y-auto p-6 md:p-8 w-full">
+            <div className="max-w-7xl mx-auto">
+              <OTConsentManagement patientId={selectedPatient?.id} />
+            </div>
+          </div>
+          <div className="bg-white border-t border-slate-100 p-4 flex justify-end gap-3 shrink-0">
+            <Button variant="outline" className="text-xs h-9 font-bold px-6" onClick={() => setIsConsentOpen(false)}>Close Consent Panel</Button>
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* WHO Surgical Safety Checklist Modal for Selected Patient */}
       <Dialog open={isSurgicalChecklistOpen} onOpenChange={setIsSurgicalChecklistOpen}>
-        <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto bg-white p-0 rounded-2xl shadow-2xl overflow-hidden border-none text-slate-800">
-          <div className="p-6 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+        <DialogContent className="fixed inset-0 top-0 left-0 translate-x-0 translate-y-0 w-screen h-screen max-w-none max-h-none sm:max-w-none rounded-none m-0 p-0 flex flex-col bg-slate-50 overflow-hidden border-none text-slate-800 z-50">
+          <div className="p-6 bg-white border-b border-slate-100 flex items-center justify-between shrink-0">
             <div className="space-y-1 text-left">
               <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
                 <ClipboardCheck className="w-5 h-5 text-indigo-600" />
@@ -2871,19 +2879,21 @@ View full details at: ${shareUrl}
               <Plus className="w-4 h-4 rotate-45" />
             </Button>
           </div>
-          <div className="p-6">
-            {activeOTRecord ? (
-              <SurgicalSafetyChecklist 
-                record={activeOTRecord} 
-                patient={selectedPatient} 
-                onClose={() => setIsSurgicalChecklistOpen(false)}
-              />
-            ) : (
-              <div className="text-center py-12 text-slate-400">
-                <AlertCircle className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                No active surgical record available for checklist audit.
-              </div>
-            )}
+          <div className="flex-1 overflow-y-auto p-6 md:p-8 w-full">
+            <div className="max-w-7xl mx-auto bg-white rounded-2xl border border-slate-200/60 shadow-xs overflow-hidden">
+              {activeOTRecord ? (
+                <SurgicalSafetyChecklist 
+                  record={activeOTRecord} 
+                  patient={selectedPatient} 
+                  onClose={() => setIsSurgicalChecklistOpen(false)}
+                />
+              ) : (
+                <div className="text-center py-12 text-slate-400">
+                  <AlertCircle className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                  No active surgical record available for checklist audit.
+                </div>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
