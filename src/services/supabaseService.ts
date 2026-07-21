@@ -4625,6 +4625,30 @@ const rawSupabaseService = {
     }
   },
 
+  updateAdmissionBed: async (admissionId: string, bedId: string, ward: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('admissions')
+        .update({ bed_id: bedId, ward: ward })
+        .eq('id', admissionId)
+        .select();
+      
+      if (error) throw error;
+      return data[0];
+    } catch (error: any) {
+      console.warn('Handling local fallback for update admission bed:', error.message);
+      const list = storage.get('hms_admissions', []);
+      const updated = list.map((item: any) => {
+        if (item.id === admissionId) {
+          return { ...item, bed_id: bedId, bedId: bedId, ward: ward };
+        }
+        return item;
+      });
+      storage.set('hms_admissions', updated);
+      return updated.find((item: any) => item.id === admissionId) || null;
+    }
+  },
+
   getDischargeSummaries: async () => {
     try {
       const { data, error } = await supabase

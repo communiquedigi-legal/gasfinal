@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   Printer,
   ArrowLeftRight,
+  ArrowRight,
   Receipt,
   User,
   AlertCircle,
@@ -301,7 +302,58 @@ export default function IPD() {
     temp: '',
     spo2: ''
   });
-  const [transferData, setTransferData] = useState({ patientId: '', fromBedId: '', toBedId: '' });
+  const [transferData, setTransferData] = useState({ 
+    patientId: '', 
+    fromBedId: '', 
+    toBedId: '',
+    reason: 'Clinical improvement - Step down',
+    transferredBy: '',
+    clinicalRequirements: 'Wheelchair assist',
+    nurseInCharge: ''
+  });
+  const [bedTransfers, setBedTransfers] = useState<any[]>(() => {
+    const list = storage.get(STORAGE_KEYS.BED_TRANSFERS, []);
+    if (list.length === 0) {
+      return [
+        {
+          id: 'trf-1',
+          patientId: 'p1',
+          patientName: 'Aarav Sharma',
+          fromBedId: 'b1',
+          fromBedNumber: '101',
+          fromWard: 'General Ward A',
+          toBedId: 'b2',
+          toBedNumber: '102',
+          toWard: 'General Ward A',
+          reason: 'Clinical deterioration - Shifted to closer monitoring bed',
+          transferDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+          transferredBy: 'Dr. Anjali Mehta',
+          clinicalRequirements: 'Wheelchair assist, Continuous pulse oximetry',
+          nurseInCharge: 'Staff Nurse Priya S.'
+        },
+        {
+          id: 'trf-2',
+          patientId: 'p2',
+          patientName: 'Sunita Patel',
+          fromBedId: 'b3',
+          fromBedNumber: '201',
+          fromWard: 'ICU',
+          toBedId: 'b4',
+          toBedNumber: 'M1',
+          toWard: 'Maternity',
+          reason: 'Post-operative stable stepdown',
+          transferDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+          transferredBy: 'Dr. S. K. Sen',
+          clinicalRequirements: 'Oxygen support (2L/min), cardiac monitor',
+          nurseInCharge: 'Staff Nurse Mathew George'
+        }
+      ];
+    }
+    return list;
+  });
+  const [shiftedSummaryToShow, setShiftedSummaryToShow] = useState<any>(null);
+  const [shiftSearchQuery, setShiftSearchQuery] = useState('');
+  const [shiftHistorySearch, setShiftHistorySearch] = useState('');
   const [newBed, setNewBed] = useState({ number: '', ward: '', type: 'General' });
   
   const [isAdmissionOpen, setIsAdmissionOpen] = useState(false);
@@ -324,7 +376,7 @@ export default function IPD() {
   const isDeleteForbidden = false;
 
   // --- NEW WORKFLOWS STATE ---
-  const [activeTab, setActiveTab] = useState<'registration' | 'beds' | 'surgery' | 'discharge'>('beds');
+  const [activeTab, setActiveTab] = useState<'registration' | 'beds' | 'surgery' | 'discharge' | 'shifting'>('beds');
 
   useEffect(() => {
     if (isDoctor && activeTab === 'registration') {
@@ -1837,20 +1889,314 @@ export default function IPD() {
       return;
     }
 
+    const patientObj = patients.find(p => p.id === transferData.patientId) || MOCK_PATIENTS.find(p => p.id === transferData.patientId);
+    const fromBedObj = beds.find(b => b.id === transferData.fromBedId);
+    const toBedObj = beds.find(b => b.id === transferData.toBedId);
+
+    if (!toBedObj) {
+      toast.error('Selected target bed does not exist');
+      return;
+    }
+
     const successFrom = await supabaseService.updateBedStatus(transferData.fromBedId, 'Available', null);
     const successTo = await supabaseService.updateBedStatus(transferData.toBedId, 'Occupied', transferData.patientId);
 
     if (successFrom && successTo) {
+      // Find active admission of this patient and update its bed & ward reference
+      const activeAdmission = admissions.find(a => 
+        (a.patient_id === transferData.patientId || a.patientId === transferData.patientId) && 
+        a.status === 'Admitted'
+      );
+      if (activeAdmission) {
+        const updatedAdm = await supabaseService.updateAdmissionBed(activeAdmission.id, transferData.toBedId, toBedObj.ward);
+        if (updatedAdm) {
+          setAdmissions(prev => prev.map(a => a.id === activeAdmission.id ? { 
+            ...a, 
+            bed_id: transferData.toBedId, 
+            bedId: transferData.toBedId,
+            ward: toBedObj.ward 
+          } : a));
+        }
+      }
+
+      // Log the transfer
+      const shiftingRecord = {
+        id: 'shf-' + Date.now(),
+        patientId: transferData.patientId,
+        patientName: patientObj?.name || 'Walk-in Inpatient',
+        fromBedId: transferData.fromBedId,
+        fromBedNumber: fromBedObj?.bed_number || fromBedObj?.number || 'N/A',
+        fromWard: fromBedObj?.ward || 'N/A',
+        toBedId: transferData.toBedId,
+        toBedNumber: toBedObj?.bed_number || toBedObj?.number || 'N/A',
+        toWard: toBedObj?.ward || 'N/A',
+        reason: transferData.reason,
+        transferDate: new Date().toISOString(),
+        transferredBy: transferData.transferredBy || currentUser?.name || 'Dr. Ramesh Mehta',
+        clinicalRequirements: transferData.clinicalRequirements,
+        nurseInCharge: transferData.nurseInCharge || 'Staff Nurse Priya S.'
+      };
+
+      const updatedTransfers = [shiftingRecord, ...bedTransfers];
+      setBedTransfers(updatedTransfers);
+      storage.set(STORAGE_KEYS.BED_TRANSFERS, updatedTransfers);
+
       setBeds(beds.map(b => {
         if (b.id === transferData.fromBedId) return successFrom;
         if (b.id === transferData.toBedId) return successTo;
         return b;
       }));
+      
+      logAudit('INTRA_HOSPITAL_SHIFT', transferData.patientId, {
+        fromBed: fromBedObj?.bed_number || fromBedObj?.number,
+        toBed: toBedObj?.bed_number || toBedObj?.number,
+        reason: transferData.reason
+      });
+
       setIsTransferOpen(false);
       toast.success('Patient transferred successfully');
     } else {
       toast.error('Failed to complete transfer');
     }
+  };
+
+  const printShiftingOrder = (transfer: any) => {
+    if (!transfer) return;
+    const pat = patients.find(p => p.id === transfer.patientId) || MOCK_PATIENTS.find(p => p.id === transfer.patientId);
+    const rawHospitalInfo = storage.get(STORAGE_KEYS.HOSPITAL_INFO, null);
+    const hospitalName = rawHospitalInfo?.name || 'NEW GASTRO PLUS HOSPITAL';
+    const hospitalSubHeader = rawHospitalInfo?.address || 'Healthcare Center';
+    const hospitalPhone = rawHospitalInfo?.phone || '+91 98765 43210';
+
+    // Temporary iframe for printing
+    const iframeId = 'shifting-order-iframe-temp';
+    let iframe = document.getElementById(iframeId) as HTMLIFrameElement;
+    if (iframe) {
+      document.body.removeChild(iframe);
+    }
+    
+    iframe = document.createElement('iframe') as HTMLIFrameElement;
+    iframe.id = iframeId;
+    iframe.style.position = 'fixed';
+    iframe.style.bottom = '0';
+    iframe.style.right = '0';
+    iframe.style.width = '0px';
+    iframe.style.height = '0px';
+    iframe.style.border = 'none';
+    iframe.style.margin = '0';
+    iframe.style.padding = '0';
+    iframe.style.opacity = '0';
+    iframe.style.pointerEvents = 'none';
+    
+    document.body.appendChild(iframe);
+    
+    const iframeDoc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!iframeDoc) {
+      toast.error('Unable to initialize printing container');
+      return;
+    }
+
+    const formattedShiftDate = new Date(transfer.transferDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date(transfer.transferDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+    const cardHtml = `
+      <html>
+        <head>
+          <title>Intra-Hospital Shifting Ticket - ${transfer.patientName}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+            body { 
+              font-family: 'Inter', sans-serif; 
+              margin: 20px; 
+              padding: 0;
+              color: #1e293b;
+              background-color: #ffffff;
+            }
+            .card-border {
+              border: 3px double #0f766e;
+              padding: 20px;
+              border-radius: 8px;
+              max-width: 600px;
+              margin: 0 auto;
+            }
+            .hospital-banner { 
+              border-bottom: 2px solid #0f766e; 
+              padding-bottom: 8px; 
+              margin-bottom: 15px; 
+              text-align: center;
+            }
+            .hospital-name {
+              font-size: 18px;
+              font-weight: 800;
+              color: #0f766e;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .hospital-sub {
+              font-size: 10px;
+              color: #64748b;
+              margin-top: 2px;
+            }
+            .card-title-badge { 
+              text-align: center; 
+              font-size: 13px; 
+              font-weight: 800; 
+              margin-bottom: 15px; 
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              color: #ffffff;
+              background-color: #0f766e;
+              padding: 4px 10px;
+              border-radius: 4px;
+              display: inline-block;
+              margin-left: auto;
+              margin-right: auto;
+            }
+            .badge-wrapper {
+              text-align: center;
+              margin-bottom: 15px;
+            }
+            .grid-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 15px;
+            }
+            .grid-table td {
+              padding: 6px 10px;
+              border: 1px solid #cbd5e1;
+              font-size: 11px;
+            }
+            .grid-table td.label {
+              font-weight: 700;
+              background-color: #f1f5f9;
+              color: #334155;
+              width: 25%;
+            }
+            .section-title {
+              font-size: 11px;
+              font-weight: 800;
+              color: #0f766e;
+              border-bottom: 1px solid #0f766e;
+              padding-bottom: 2px;
+              margin-bottom: 8px;
+              text-transform: uppercase;
+            }
+            .section-content {
+              font-size: 11px;
+              line-height: 1.5;
+              color: #1e293b;
+              margin-bottom: 12px;
+            }
+            .footer-sign {
+              margin-top: 35px;
+              display: flex;
+              justify-content: space-between;
+              font-size: 10px;
+            }
+            .sig-box {
+              text-align: center;
+              width: 170px;
+            }
+            .sig-line {
+              border-top: 1px solid #cbd5e1;
+              margin-top: 30px;
+              padding-top: 4px;
+              font-weight: 600;
+              color: #475569;
+            }
+            @media print {
+              body { margin: 10px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="card-border">
+            <div class="hospital-banner">
+              <div class="hospital-name">${hospitalName}</div>
+              <div class="hospital-sub">
+                ${hospitalSubHeader} | Tel: ${hospitalPhone}
+              </div>
+            </div>
+            
+            <div class="badge-wrapper">
+              <div class="card-title-badge">Intra-Hospital Shifting Ticket</div>
+            </div>
+            
+            <table class="grid-table">
+              <tr>
+                <td class="label">Patient Name</td>
+                <td style="font-weight: 700;">${transfer.patientName}</td>
+                <td class="label">MRN / ID</td>
+                <td>${pat?.mrn || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td class="label">Age / Gender</td>
+                <td>${pat?.age ? `${pat.age} Yrs` : 'N/A'} / ${pat?.gender || 'N/A'}</td>
+                <td class="label">Shift Date-Time</td>
+                <td>${formattedShiftDate}</td>
+              </tr>
+              <tr>
+                <td class="label">Source Bed</td>
+                <td style="font-weight: 700; color: #b91c1c;">Bed ${transfer.fromBedNumber || 'N/A'}</td>
+                <td class="label">Source Ward</td>
+                <td>${transfer.fromWard || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td class="label">Destination Bed</td>
+                <td style="font-weight: 700; color: #15803d;">Bed ${transfer.toBedNumber || 'N/A'}</td>
+                <td class="label">Destination Ward</td>
+                <td>${transfer.toWard || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td class="label">Authorizing MD</td>
+                <td>${transfer.transferredBy || 'Assigned MD'}</td>
+                <td class="label">Nurse In-Charge</td>
+                <td>${transfer.nurseInCharge || 'On Duty Staff'}</td>
+              </tr>
+            </table>
+
+            <div class="section-title">Reason for Shifting</div>
+            <div class="section-content" style="font-weight: 500;">${transfer.reason}</div>
+
+            <div class="section-title">Clinical Support Requirements During Shifting</div>
+            <div class="section-content" style="color: #475569; font-style: italic;">${transfer.clinicalRequirements || 'No special requirements specified. Standard trolley/wheelchair shift.'}</div>
+
+            <div class="footer-sign">
+              <div class="sig-box">
+                <div class="sig-line">Sending Ward Nurse</div>
+              </div>
+              <div class="sig-box">
+                <div class="sig-line">Receiving Ward Nurse</div>
+              </div>
+              <div class="sig-box">
+                <div class="sig-line">Medical Officer / Doctor</div>
+              </div>
+            </div>
+          </div>
+
+          <script>
+            window.onload = () => {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    iframeDoc.write(cardHtml);
+    iframeDoc.close();
+
+    setTimeout(() => {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        
+        setTimeout(() => {
+          if (document.getElementById(iframeId)) {
+            document.body.removeChild(iframe);
+          }
+        }, 3000);
+      }
+    }, 500);
   };
 
   const calculateBedCharges = (patientId: string) => {
@@ -2364,6 +2710,18 @@ export default function IPD() {
           }`}
         >
           Discharge Summary
+        </Button>
+        <Button 
+          variant="ghost"
+          size="sm" 
+          onClick={() => setActiveTab('shifting')}
+          className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
+            activeTab === 'shifting' 
+              ? 'bg-teal-600 text-white shadow-md hover:bg-teal-700' 
+              : 'text-slate-600 hover:bg-slate-200/60'
+          }`}
+        >
+          Intra-Hospital Shifting
         </Button>
       </div>
 
@@ -4369,6 +4727,433 @@ export default function IPD() {
           </div>
         </div>
       )}
+
+      {activeTab === 'shifting' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in fade-in duration-300">
+          {/* Left Panel: Execute Transfer Form (Span 5) */}
+          <div className="lg:col-span-5">
+            <Card className="border-none shadow-sm bg-white overflow-hidden h-full">
+              <CardHeader className="bg-slate-50 border-b border-slate-100 p-4">
+                <CardTitle className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-2 font-mono">
+                  <ArrowLeftRight className="w-4 h-4 text-teal-600" />
+                  Request Intra-Hospital Shifting
+                </CardTitle>
+                <CardDescription className="text-[11px]">
+                  Authorize and execute transfer of an admitted patient to another ward/bed.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 space-y-4">
+                {/* Step 1: Select Active Patient */}
+                <div className="space-y-1.5 p-3 bg-slate-50/70 rounded-xl border border-slate-100">
+                  <Label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <Search className="w-3.5 h-3.5 text-teal-600" />
+                    1. Select Inpatient to Shift
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      placeholder="Search active patient by name or bed..."
+                      value={shiftSearchQuery}
+                      onChange={(e) => setShiftSearchQuery(e.target.value)}
+                      className="h-9 bg-white text-xs"
+                    />
+                    {shiftSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setShiftSearchQuery('')}
+                        className="absolute right-3 top-2.5 text-xs font-bold text-slate-400 hover:text-slate-600"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Dropdown list of occupied beds / patients matching query */}
+                  <div className="mt-2 space-y-1 max-h-[150px] overflow-y-auto custom-scrollbar">
+                    {(() => {
+                      const matchedInpatients = beds.filter(b => {
+                        if (b.status !== 'Occupied' || (!b.patientId && !b.patient_id)) return false;
+                        const pat = patients.find(p => p.id === (b.patientId || b.patient_id)) || MOCK_PATIENTS.find(p => p.id === (b.patientId || b.patient_id));
+                        if (!pat) return false;
+                        return pat.name.toLowerCase().includes(shiftSearchQuery.toLowerCase()) || 
+                               b.bed_number?.toLowerCase().includes(shiftSearchQuery.toLowerCase()) ||
+                               b.number?.toLowerCase().includes(shiftSearchQuery.toLowerCase()) ||
+                               (pat.mrn || '').toLowerCase().includes(shiftSearchQuery.toLowerCase());
+                      });
+
+                      if (matchedInpatients.length === 0) {
+                        return (
+                          <p className="text-[10px] text-slate-400 italic py-1 px-2">
+                            {shiftSearchQuery ? "No matching active patients found." : "Search to filter active patients."}
+                          </p>
+                        );
+                      }
+
+                      return matchedInpatients.map(b => {
+                        const pat = patients.find(p => p.id === (b.patientId || b.patient_id)) || MOCK_PATIENTS.find(p => p.id === (b.patientId || b.patient_id));
+                        const isSelected = transferData.patientId === (b.patientId || b.patient_id);
+                        return (
+                          <div
+                            key={b.id}
+                            onClick={() => {
+                              setTransferData({
+                                patientId: b.patientId || b.patient_id || '',
+                                fromBedId: b.id,
+                                toBedId: '',
+                                reason: 'Clinical improvement - Step down to ward',
+                                transferredBy: currentUser?.name || '',
+                                clinicalRequirements: 'Wheelchair assist, Continuous pulse oximetry',
+                                nurseInCharge: ''
+                              });
+                              setShiftSearchQuery('');
+                              toast.success(`Selected patient ${pat?.name} (Bed ${b.bed_number || b.number})`);
+                            }}
+                            className={`p-2 rounded-lg text-xs cursor-pointer transition-colors flex justify-between items-center ${
+                              isSelected 
+                                ? 'bg-teal-50 border border-teal-200 text-teal-800 font-bold' 
+                                : 'bg-white hover:bg-slate-50 border border-slate-100 text-slate-700'
+                            }`}
+                          >
+                            <div>
+                              <p className="font-semibold text-[11px]">{pat?.name || 'Inpatient'}</p>
+                              <p className="text-[10px] text-slate-400">MRN: {pat?.mrn || 'N/A'}</p>
+                            </div>
+                            <span className="bg-slate-100 px-2 py-0.5 rounded text-[10px] font-mono text-slate-600">
+                              Bed {b.bed_number || b.number} ({b.ward})
+                            </span>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+
+                {/* Step 2: Show Selected Patient Information */}
+                {transferData.patientId ? (
+                  <div className="space-y-4 animate-in slide-in-from-top-1 duration-200">
+                    <div className="bg-teal-50/50 p-3 rounded-xl border border-teal-100/50 text-xs text-teal-900 space-y-1">
+                      <p className="font-extrabold flex justify-between">
+                        <span>Selected Patient:</span>
+                        <span className="text-teal-700">{patients.find(p => p.id === transferData.patientId)?.name || MOCK_PATIENTS.find(p => p.id === transferData.patientId)?.name}</span>
+                      </p>
+                      <p className="text-[10px] text-teal-600 flex justify-between">
+                        <span>Current Bed location:</span>
+                        <span>
+                          Bed {beds.find(b => b.id === transferData.fromBedId)?.bed_number || beds.find(b => b.id === transferData.fromBedId)?.number} 
+                          ({beds.find(b => b.id === transferData.fromBedId)?.ward})
+                        </span>
+                      </p>
+                    </div>
+
+                    {/* Step 3: Select Target Bed & Ward */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-slate-700">2. Select Destination Bed <span className="text-red-500">*</span></Label>
+                      <Select 
+                        value={transferData.toBedId} 
+                        onValueChange={(v) => setTransferData({...transferData, toBedId: v})}
+                      >
+                        <SelectTrigger className="h-9 text-xs bg-white">
+                          <SelectValue placeholder="Choose a vacant bed" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {beds.filter(b => b.status === 'Available').map(b => (
+                            <SelectItem key={b.id} value={b.id} className="text-xs">
+                              Bed {b.bed_number || b.number} - {b.ward} ({b.bed_type || b.type})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Step 4: Reason for Shifting */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-slate-700">3. Reason for Shifting</Label>
+                      <Select 
+                        value={transferData.reason} 
+                        onValueChange={(v) => setTransferData({...transferData, reason: v})}
+                      >
+                        <SelectTrigger className="h-9 text-xs bg-white">
+                          <SelectValue placeholder="Select shifting reason" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Clinical deterioration - ICU Upgrade" className="text-xs">Clinical deterioration - ICU Upgrade</SelectItem>
+                          <SelectItem value="Clinical improvement - Step down to ward" className="text-xs">Clinical improvement - Step down to ward</SelectItem>
+                          <SelectItem value="Post-operative monitoring requirement" className="text-xs">Post-operative monitoring requirement</SelectItem>
+                          <SelectItem value="Specialized Isolation / Quarantine" className="text-xs">Specialized Isolation / Quarantine</SelectItem>
+                          <SelectItem value="Patient / Family request" className="text-xs">Patient / Family request</SelectItem>
+                          <SelectItem value="Bed/Ward Maintenance or Disinfection" className="text-xs">Bed/Ward Maintenance or Disinfection</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Step 5: Clinical requirements */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-slate-700">4. Support / Assist Requirements</Label>
+                      <Select 
+                        value={transferData.clinicalRequirements} 
+                        onValueChange={(v) => setTransferData({...transferData, clinicalRequirements: v})}
+                      >
+                        <SelectTrigger className="h-9 text-xs bg-white">
+                          <SelectValue placeholder="Select clinical equipment SOS" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="None - Walk-in assist" className="text-xs">None - Walk-in assist</SelectItem>
+                          <SelectItem value="Wheelchair assist, Continuous pulse oximetry" className="text-xs">Wheelchair assist, Continuous pulse oximetry</SelectItem>
+                          <SelectItem value="Oxygen support (2L/min), trolley shift" className="text-xs">Oxygen support (2L/min), trolley shift</SelectItem>
+                          <SelectItem value="Full cardiac monitor, IV drip infusion, trolley shift" className="text-xs">Full cardiac monitor, IV drip infusion, trolley shift</SelectItem>
+                          <SelectItem value="Ventilator assist / AMBU bag, Doctor escort required" className="text-xs">Ventilator assist / AMBU bag, Doctor escort required</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Staff Sign-offs */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-bold text-slate-500 uppercase">Authorizing Doctor</Label>
+                        <Input 
+                          placeholder="Dr. S. K. Sen" 
+                          value={transferData.transferredBy} 
+                          onChange={(e) => setTransferData({...transferData, transferredBy: e.target.value})} 
+                          className="h-8.5 text-xs bg-white"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-bold text-slate-500 uppercase">Nurse In-Charge</Label>
+                        <Input 
+                          placeholder="Staff Nurse Mathew" 
+                          value={transferData.nurseInCharge} 
+                          onChange={(e) => setTransferData({...transferData, nurseInCharge: e.target.value})} 
+                          className="h-8.5 text-xs bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="pt-2 flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setTransferData({
+                          patientId: '',
+                          fromBedId: '',
+                          toBedId: '',
+                          reason: 'Clinical improvement - Step down to ward',
+                          transferredBy: '',
+                          clinicalRequirements: 'Wheelchair assist',
+                          nurseInCharge: ''
+                        })}
+                        className="flex-1 text-xs h-9 font-bold"
+                      >
+                        Reset Form
+                      </Button>
+                      <Button
+                        onClick={async () => {
+                          if (!transferData.toBedId) {
+                            toast.error("Please choose a target bed location first");
+                            return;
+                          }
+                          const toBedObj = beds.find(b => b.id === transferData.toBedId);
+                          const fromBedObj = beds.find(b => b.id === transferData.fromBedId);
+                          const patientObj = patients.find(p => p.id === transferData.patientId) || MOCK_PATIENTS.find(p => p.id === transferData.patientId);
+
+                          const successFrom = await supabaseService.updateBedStatus(transferData.fromBedId, 'Available', null);
+                          const successTo = await supabaseService.updateBedStatus(transferData.toBedId, 'Occupied', transferData.patientId);
+
+                          if (successFrom && successTo) {
+                            // Find active admission of this patient and update its bed & ward reference
+                            const activeAdmission = admissions.find(a => 
+                              (a.patient_id === transferData.patientId || a.patientId === transferData.patientId) && 
+                              a.status === 'Admitted'
+                            );
+                            if (activeAdmission && toBedObj) {
+                              const updatedAdm = await supabaseService.updateAdmissionBed(activeAdmission.id, transferData.toBedId, toBedObj.ward);
+                              if (updatedAdm) {
+                                setAdmissions(prev => prev.map(a => a.id === activeAdmission.id ? { 
+                                  ...a, 
+                                  bed_id: transferData.toBedId, 
+                                  bedId: transferData.toBedId,
+                                  ward: toBedObj.ward 
+                                } : a));
+                              }
+                            }
+
+                            const shiftingRecord = {
+                              id: 'shf-' + Date.now(),
+                              patientId: transferData.patientId,
+                              patientName: patientObj?.name || 'Walk-in Inpatient',
+                              fromBedId: transferData.fromBedId,
+                              fromBedNumber: fromBedObj?.bed_number || fromBedObj?.number || 'N/A',
+                              fromWard: fromBedObj?.ward || 'N/A',
+                              toBedId: transferData.toBedId,
+                              toBedNumber: toBedObj?.bed_number || toBedObj?.number || 'N/A',
+                              toWard: toBedObj?.ward || 'N/A',
+                              reason: transferData.reason,
+                              transferDate: new Date().toISOString(),
+                              transferredBy: transferData.transferredBy || currentUser?.name || 'Dr. Ramesh Mehta',
+                              clinicalRequirements: transferData.clinicalRequirements,
+                              nurseInCharge: transferData.nurseInCharge || 'Staff Nurse Priya S.'
+                            };
+
+                            const updatedTransfers = [shiftingRecord, ...bedTransfers];
+                            setBedTransfers(updatedTransfers);
+                            storage.set(STORAGE_KEYS.BED_TRANSFERS, updatedTransfers);
+
+                            setBeds(beds.map(b => {
+                              if (b.id === transferData.fromBedId) return successFrom;
+                              if (b.id === transferData.toBedId) return successTo;
+                              return b;
+                            }));
+
+                            logAudit('INTRA_HOSPITAL_SHIFT', transferData.patientId, {
+                              fromBed: fromBedObj?.bed_number || fromBedObj?.number,
+                              toBed: toBedObj?.bed_number || toBedObj?.number,
+                              reason: transferData.reason
+                            });
+
+                            toast.success("Patient shifted successfully! Opening print ticket...");
+                            printShiftingOrder(shiftingRecord);
+                            
+                            // Clear form
+                            setTransferData({
+                              patientId: '',
+                              fromBedId: '',
+                              toBedId: '',
+                              reason: 'Clinical improvement - Step down to ward',
+                              transferredBy: '',
+                              clinicalRequirements: 'Wheelchair assist',
+                              nurseInCharge: ''
+                            });
+                          } else {
+                            toast.error("Failed to complete shift");
+                          }
+                        }}
+                        className="flex-1 text-xs h-9 bg-teal-600 hover:bg-teal-700 text-white font-extrabold"
+                      >
+                        Execute Transfer & Print
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-8 text-center text-slate-300 border border-dashed rounded-xl border-slate-200">
+                    <ArrowLeftRight className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Please select an active inpatient above to begin</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Panel: Shifting History logs & Print tickets (Span 7) */}
+          <div className="lg:col-span-7">
+            <Card className="border-none shadow-sm bg-white overflow-hidden h-full">
+              <CardHeader className="bg-slate-50 border-b border-slate-100 p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div>
+                    <CardTitle className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-2 font-mono">
+                      <History className="w-4 h-4 text-teal-600" />
+                      Intra-Hospital Shifting Register / Logs
+                    </CardTitle>
+                    <CardDescription className="text-[11px]">
+                      Historical log of all internal patient transfers and bed movements.
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Filter history..."
+                      value={shiftHistorySearch}
+                      onChange={(e) => setShiftHistorySearch(e.target.value)}
+                      className="h-8 text-xs w-[160px] bg-white"
+                    />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="border border-slate-100 rounded-xl overflow-hidden shadow-sm bg-white">
+                  <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
+                    <Table>
+                      <TableHeader className="bg-slate-50/80 sticky top-0 z-10">
+                        <TableRow>
+                          <TableHead className="text-[10px] font-black text-slate-500 uppercase tracking-wider font-mono py-2.5">Inpatient Details</TableHead>
+                          <TableHead className="text-[10px] font-black text-slate-500 uppercase tracking-wider font-mono py-2.5">Bed Transfer Info</TableHead>
+                          <TableHead className="text-[10px] font-black text-slate-500 uppercase tracking-wider font-mono py-2.5">Reason & Details</TableHead>
+                          <TableHead className="text-[10px] font-black text-slate-500 uppercase tracking-wider font-mono py-2.5 text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(() => {
+                          const filteredHistory = bedTransfers.filter(trf => {
+                            if (!trf) return false;
+                            const matchSearch = 
+                              trf.patientName?.toLowerCase().includes(shiftHistorySearch.toLowerCase()) ||
+                              trf.fromBedNumber?.toLowerCase().includes(shiftHistorySearch.toLowerCase()) ||
+                              trf.toBedNumber?.toLowerCase().includes(shiftHistorySearch.toLowerCase()) ||
+                              trf.reason?.toLowerCase().includes(shiftHistorySearch.toLowerCase());
+                            return matchSearch;
+                          });
+
+                          if (filteredHistory.length === 0) {
+                            return (
+                              <TableRow>
+                                <TableCell colSpan={4} className="py-12 text-center text-slate-300">
+                                  <ArrowLeftRight className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">No interior shifting records found.</p>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          }
+
+                          return filteredHistory.map((trf, index) => {
+                            const formattedDate = new Date(trf.transferDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                            const formattedTime = new Date(trf.transferDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+                            return (
+                              <TableRow key={trf.id || index} className="hover:bg-slate-50/50">
+                                <TableCell className="py-3">
+                                  <div className="space-y-0.5">
+                                    <p className="font-extrabold text-slate-800 text-xs">{trf.patientName}</p>
+                                    <p className="text-[9.5px] text-slate-400 font-mono">Date: {formattedDate} at {formattedTime}</p>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="py-3">
+                                  <div className="flex items-center gap-1 text-[10px]">
+                                    <div className="bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold font-mono">
+                                      Bed {trf.fromBedNumber} ({trf.fromWard?.split(' ')[0]})
+                                    </div>
+                                    <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                                    <div className="bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold font-mono">
+                                      Bed {trf.toBedNumber} ({trf.toWard?.split(' ')[0]})
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="py-3">
+                                  <div className="max-w-[200px] space-y-0.5">
+                                    <p className="text-[11px] font-medium text-slate-700 truncate" title={trf.reason}>{trf.reason}</p>
+                                    <p className="text-[9.5px] text-slate-400 font-medium">By: {trf.transferredBy}</p>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="py-3 text-right">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      toast.success("Printing intra-hospital shift slip...");
+                                      printShiftingOrder(trf);
+                                    }}
+                                    className="h-6.5 text-[9.5px] font-black bg-teal-50 hover:bg-teal-600 hover:text-white text-teal-700 transition-colors px-2 rounded"
+                                  >
+                                    SLIP 🖨️
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          });
+                        })()}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
       {/* Patient Chart Dialog */}
       <Dialog open={isChartOpen} onOpenChange={setIsChartOpen}>
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
@@ -4806,42 +5591,104 @@ export default function IPD() {
 
       {/* Bed Transfer Dialog */}
       <Dialog open={isTransferOpen} onOpenChange={setIsTransferOpen}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle>Transfer Patient</DialogTitle>
+            <DialogTitle className="flex items-center gap-2 text-teal-700">
+              <ArrowLeftRight className="w-5 h-5 text-teal-600" />
+              Intra-Hospital Patient Transfer
+            </DialogTitle>
             <DialogDescription>
-              Transfer {MOCK_PATIENTS.find(p => p.id === transferData.patientId)?.name} to another bed.
+              Transfer <strong>{patients.find(p => p.id === transferData.patientId)?.name || MOCK_PATIENTS.find(p => p.id === transferData.patientId)?.name || 'Patient'}</strong> to another vacant bed.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Current Bed</Label>
-              <Input disabled value={`Bed ${beds.find(b => b.id === transferData.fromBedId)?.bed_number} (${beds.find(b => b.id === transferData.fromBedId)?.ward})`} />
+          <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto px-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-slate-500 uppercase">Current Bed</Label>
+                <Input disabled value={(() => {
+                  const cb = beds.find(b => b.id === transferData.fromBedId);
+                  return cb ? `Bed ${cb.bed_number} (${cb.ward})` : 'N/A';
+                })()} className="bg-slate-50 text-slate-600 h-9 text-xs" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-slate-500 uppercase">Target Bed <span className="text-red-500">*</span></Label>
+                <Select value={transferData.toBedId} onValueChange={(v) => setTransferData({...transferData, toBedId: v})}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="Select target bed">
+                      {(() => {
+                        const b = beds.find(x => x.id === transferData.toBedId);
+                        return b ? `Bed ${b.bed_number} - ${b.ward}` : undefined;
+                      })()}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {beds.filter(b => b.status === 'Available' || b.id === transferData.toBedId).map(b => (
+                      <SelectItem key={b.id} value={b.id} className="text-xs">Bed {b.bed_number} - {b.ward} ({b.bed_type})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Target Bed</Label>
-              <Select value={transferData.toBedId} onValueChange={(v) => setTransferData({...transferData, toBedId: v})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select target bed">
-                    {(() => {
-                      const b = beds.find(x => x.id === transferData.toBedId);
-                      return b ? `Bed ${b.bed_number} - ${b.ward} (${b.bed_type})` : undefined;
-                    })()}
-                  </SelectValue>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-bold text-slate-500 uppercase">Reason for Shifting</Label>
+              <Select value={transferData.reason} onValueChange={(v) => setTransferData({...transferData, reason: v})}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Select shifting reason" />
                 </SelectTrigger>
                 <SelectContent>
-                  {beds.filter(b => b.status === 'Available' || b.id === transferData.toBedId).map(b => (
-                    <SelectItem key={b.id} value={b.id}>Bed {b.bed_number} - {b.ward} ({b.bed_type})</SelectItem>
-                  ))}
+                  <SelectItem value="Clinical deterioration - ICU Upgrade" className="text-xs">Clinical deterioration - ICU Upgrade</SelectItem>
+                  <SelectItem value="Clinical improvement - Step down to ward" className="text-xs">Clinical improvement - Step down to ward</SelectItem>
+                  <SelectItem value="Post-operative monitoring requirement" className="text-xs">Post-operative monitoring requirement</SelectItem>
+                  <SelectItem value="Specialized Isolation / Quarantine" className="text-xs">Specialized Isolation / Quarantine</SelectItem>
+                  <SelectItem value="Patient / Family request" className="text-xs">Patient / Family request</SelectItem>
+                  <SelectItem value="Bed/Ward Maintenance or Disinfection" className="text-xs">Bed/Ward Maintenance or Disinfection</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-bold text-slate-500 uppercase">Clinical Support Requirements</Label>
+              <Select value={transferData.clinicalRequirements} onValueChange={(v) => setTransferData({...transferData, clinicalRequirements: v})}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Select transfer requirements" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="None - Walk-in assist" className="text-xs">None - Walk-in assist</SelectItem>
+                  <SelectItem value="Wheelchair assist, Continuous pulse oximetry" className="text-xs">Wheelchair assist, Continuous pulse oximetry</SelectItem>
+                  <SelectItem value="Oxygen support (2L/min), trolley shift" className="text-xs">Oxygen support (2L/min), trolley shift</SelectItem>
+                  <SelectItem value="Full cardiac monitor, IV drip infusion, trolley shift" className="text-xs">Full cardiac monitor, IV drip infusion, trolley shift</SelectItem>
+                  <SelectItem value="Ventilator assist / AMBU bag, Doctor escort required" className="text-xs">Ventilator assist / AMBU bag, Doctor escort required</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-slate-500 uppercase">Authorizing Doctor</Label>
+                <Input 
+                  placeholder="Dr. Ramesh Mehta" 
+                  value={transferData.transferredBy} 
+                  onChange={(e) => setTransferData({...transferData, transferredBy: e.target.value})} 
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-slate-500 uppercase">Nurse In-Charge</Label>
+                <Input 
+                  placeholder="Staff Nurse Priya S." 
+                  value={transferData.nurseInCharge} 
+                  onChange={(e) => setTransferData({...transferData, nurseInCharge: e.target.value})} 
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <DialogTrigger asChild>
-              <Button variant="outline">Cancel</Button>
+              <Button variant="outline" className="h-9 text-xs">Cancel</Button>
             </DialogTrigger>
-            <Button className="bg-medical-blue" onClick={handleTransfer}>Confirm Transfer</Button>
+            <Button className="bg-teal-700 hover:bg-teal-800 text-white h-9 text-xs font-bold" onClick={handleTransfer}>Confirm & Shifting</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
