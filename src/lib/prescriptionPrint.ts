@@ -23,6 +23,9 @@ export interface PrintVitals {
   spo2?: string | number;
   weight?: string | number;
   rr?: string | number;
+  cbs?: string;
+  rs?: string;
+  cns?: string;
 }
 
 export interface PrintPrescription {
@@ -35,6 +38,8 @@ export interface PrintPrescription {
   pastHistory?: string;
   drawing?: string;
   vitals?: PrintVitals;
+  findings?: string;
+  suggestions?: string;
 }
 
 export interface PrintDoctor {
@@ -84,6 +89,9 @@ export function getPrescriptionPrintHtml(
   const spo2Val = vts?.spo2 !== undefined && vts?.spo2 !== 0 ? String(vts.spo2) : '';
   const weightVal = vts?.weight !== undefined ? String(vts.weight) : '';
   const rrVal = vts?.rr !== undefined && vts?.rr !== 0 ? String(vts.rr) : '';
+  const cbsVal = vts?.cbs || '';
+  const rsVal = vts?.rs || '';
+  const cnsVal = vts?.cns || '';
 
   const docName = doctor?.name || 'Attending Doctor';
   const docReg = doctor?.degree ? `Reg No: MC-${doctor.id?.toUpperCase() || '1234567'}` : 'Reg No: MC1234567';
@@ -114,9 +122,10 @@ export function getPrescriptionPrintHtml(
     }
   }
 
-  let advText = prescription.advice || prescription.notes || '';
-  let examFindings = prescription.examinationFindings || '';
+  let advText = prescription.advice || prescription.suggestions || prescription.notes || '';
+  let examFindings = prescription.examinationFindings || prescription.findings || '';
   let pastHist = prescription.pastHistory || '';
+  let allergiesText = (prescription as any).allergies || '';
   let drawImg = prescription.drawing || '';
   let diag = prescription.diagnosis || '';
 
@@ -125,9 +134,11 @@ export function getPrescriptionPrintHtml(
     try {
       const parsed = JSON.parse(advText);
       if (parsed && typeof parsed === 'object') {
-        advText = parsed.advice || '';
+        advText = parsed.advice || parsed.suggestions || '';
         if (parsed.examinationFindings) examFindings = parsed.examinationFindings;
+        if (parsed.findings) examFindings = parsed.findings;
         if (parsed.pastHistory) pastHist = parsed.pastHistory;
+        if (parsed.allergies) allergiesText = parsed.allergies;
         if (parsed.drawing) drawImg = parsed.drawing;
         if (parsed.diagnosis) diag = parsed.diagnosis;
       }
@@ -153,8 +164,17 @@ export function getPrescriptionPrintHtml(
   if (examFindings) {
     additionalSections += `
       <div style="margin-top: 15px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
-        <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: #0284c7; letter-spacing: 0.08em; margin-bottom: 6px;">Examination Findings (Clinical/Physical Exam):</div>
+        <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: #0284c7; letter-spacing: 0.08em; margin-bottom: 6px;">Examination Findings & Clinical Findings:</div>
         <div style="font-size: 13px; color: #1e293b; font-weight: 500; line-height: 1.5; background: #f0f9ff; border: 1.5px solid #e0f2fe; border-radius: 8px; padding: 10px 14px; border-left: 4px solid #0284c7; white-space: pre-wrap;">${examFindings}</div>
+      </div>
+    `;
+  }
+
+  if (allergiesText) {
+    additionalSections += `
+      <div style="margin-top: 15px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
+        <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: #b91c1c; letter-spacing: 0.08em; margin-bottom: 6px;">Allergies & Drug Sensitivities:</div>
+        <div style="font-size: 13px; color: #7f1d1d; font-weight: 700; line-height: 1.5; background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 8px; padding: 10px 14px; border-left: 4px solid #b91c1c; white-space: pre-wrap;">${allergiesText}</div>
       </div>
     `;
   }
@@ -162,7 +182,7 @@ export function getPrescriptionPrintHtml(
   if (pastHist) {
     additionalSections += `
       <div style="margin-top: 15px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
-        <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: #4b5563; letter-spacing: 0.08em; margin-bottom: 6px;">Past Medical History & Allergies:</div>
+        <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: #4b5563; letter-spacing: 0.08em; margin-bottom: 6px;">Past Medical History & Previous Treatments:</div>
         <div style="font-size: 13px; color: #1e293b; font-weight: 500; line-height: 1.5; background: #f9fafb; border: 1.5px solid #f3f4f6; border-radius: 8px; padding: 10px 14px; border-left: 4px solid #4b5563; white-space: pre-wrap;">${pastHist}</div>
       </div>
     `;
@@ -171,7 +191,7 @@ export function getPrescriptionPrintHtml(
   if (advText) {
     additionalSections += `
       <div style="margin-top: 15px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
-        <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: #059669; letter-spacing: 0.08em; margin-bottom: 6px;">Clinical Remarks & Advice:</div>
+        <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: #059669; letter-spacing: 0.08em; margin-bottom: 6px;">Clinical Remarks, Suggestions & Advice:</div>
         <div style="font-size: 13px; color: #1e293b; font-weight: 500; line-height: 1.5; background: #ecfdf5; border: 1.5px solid #d1fae5; border-radius: 8px; padding: 10px 14px; border-left: 4px solid #059669; white-space: pre-wrap;">${advText}</div>
       </div>
     `;
@@ -455,6 +475,9 @@ export function getPrescriptionPrintHtml(
               <div>SpO2: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 45px; display: inline-block; text-align: center; padding-bottom: 1px;">${spo2Val || '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</span> %</div>
               <div>Weight: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 45px; display: inline-block; text-align: center; padding-bottom: 1px;">${weightVal || '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</span> kg</div>
               <div>Resp Rate: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 45px; display: inline-block; text-align: center; padding-bottom: 1px;">${rrVal || '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</span> /min</div>
+              ${cbsVal ? `<div>CBS: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 45px; display: inline-block; text-align: center; padding-bottom: 1px;">${cbsVal}</span></div>` : ''}
+              ${rsVal ? `<div>RS: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 45px; display: inline-block; text-align: center; padding-bottom: 1px;">${rsVal}</span></div>` : ''}
+              ${cnsVal ? `<div>CNS: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 45px; display: inline-block; text-align: center; padding-bottom: 1px;">${cnsVal}</span></div>` : ''}
             </div>
           </div>
           

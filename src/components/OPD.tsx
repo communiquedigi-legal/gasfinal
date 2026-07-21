@@ -91,7 +91,8 @@ const deserializePrescriptionAdvice = (adviceField: string) => {
           examinationFindings: data.examinationFindings || '',
           pastHistory: data.pastHistory || '',
           drawing: data.drawing || '',
-          diagnosis: data.diagnosis || ''
+          diagnosis: data.diagnosis || '',
+          allergies: data.allergies || ''
         };
       }
     }
@@ -103,17 +104,19 @@ const deserializePrescriptionAdvice = (adviceField: string) => {
     examinationFindings: '',
     pastHistory: '',
     drawing: '',
-    diagnosis: ''
+    diagnosis: '',
+    allergies: ''
   };
 };
 
-const serializePrescriptionAdvice = (adviceText: string, exam: string, past: string, drawing: string, diagnosis: string) => {
+const serializePrescriptionAdvice = (adviceText: string, exam: string, past: string, drawing: string, diagnosis: string, allergies: string) => {
   return JSON.stringify({
     advice: adviceText || '',
     examinationFindings: exam || '',
     pastHistory: past || '',
     drawing: drawing || '',
-    diagnosis: diagnosis || ''
+    diagnosis: diagnosis || '',
+    allergies: allergies || ''
   });
 };
 
@@ -511,6 +514,7 @@ export default function OPD() {
     advice: '',
     examinationFindings: '',
     pastHistory: '',
+    allergies: '',
     drawing: '',
     attachmentUrl: '',
     attachmentName: '',
@@ -520,7 +524,10 @@ export default function OPD() {
       temp: '',
       spo2: '',
       weight: '',
-      rr: ''
+      rr: '',
+      cbs: '',
+      rs: '',
+      cns: ''
     }
   });
 
@@ -935,7 +942,8 @@ export default function OPD() {
       prescription.examinationFindings,
       prescription.pastHistory,
       prescription.drawing,
-      prescription.diagnosis
+      prescription.diagnosis,
+      prescription.allergies || ''
     );
 
     const newPrescriptionData = {
@@ -1004,6 +1012,7 @@ export default function OPD() {
         advice: '',
         examinationFindings: '',
         pastHistory: '',
+        allergies: '',
         drawing: '',
         attachmentUrl: '',
         attachmentName: '',
@@ -1013,7 +1022,10 @@ export default function OPD() {
           temp: '',
           spo2: '',
           weight: '',
-          rr: ''
+          rr: '',
+          cbs: '',
+          rs: '',
+          cns: ''
         }
       });
     } else {
@@ -1102,6 +1114,7 @@ export default function OPD() {
         advice: unpacked.advice,
         examinationFindings: unpacked.examinationFindings,
         pastHistory: unpacked.pastHistory,
+        allergies: unpacked.allergies || '',
         drawing: unpacked.drawing,
         attachmentUrl: existingRx.attachmentUrl || '',
         attachmentName: existingRx.attachmentName || '',
@@ -1111,7 +1124,10 @@ export default function OPD() {
           temp: '',
           spo2: '',
           weight: '',
-          rr: ''
+          rr: '',
+          cbs: '',
+          rs: '',
+          cns: ''
         }
       });
     } else {
@@ -1123,6 +1139,7 @@ export default function OPD() {
         advice: '',
         examinationFindings: '',
         pastHistory: '',
+        allergies: '',
         drawing: '',
         attachmentUrl: '',
         attachmentName: '',
@@ -1132,7 +1149,10 @@ export default function OPD() {
           temp: '',
           spo2: '',
           weight: '',
-          rr: ''
+          rr: '',
+          cbs: '',
+          rs: '',
+          cns: ''
         }
       });
     }
@@ -1153,21 +1173,30 @@ export default function OPD() {
       prescription.vitals.temp ||
       prescription.vitals.spo2 ||
       prescription.vitals.weight ||
-      prescription.vitals.rr
+      prescription.vitals.rr ||
+      prescription.vitals.cbs ||
+      prescription.vitals.rs ||
+      prescription.vitals.cns
     )) ? {
       bp: prescription.vitals.bp,
       pulse: prescription.vitals.pulse,
       temp: prescription.vitals.temp,
       spo2: prescription.vitals.spo2,
       weight: prescription.vitals.weight,
-      rr: prescription.vitals.rr
+      rr: prescription.vitals.rr,
+      cbs: prescription.vitals.cbs,
+      rs: prescription.vitals.rs,
+      cns: prescription.vitals.cns
     } : (latestVitals ? {
       bp: latestVitals.bp,
       pulse: latestVitals.pulse,
       temp: latestVitals.temp,
       spo2: latestVitals.spo2,
       weight: latestVitals.weight,
-      rr: latestVitals.rr || latestVitals.respiration
+      rr: latestVitals.rr || latestVitals.respiration,
+      cbs: latestVitals.cbs,
+      rs: latestVitals.rs,
+      cns: latestVitals.cns
     } : undefined);
 
     const html = getPrescriptionPrintHtml(
@@ -1182,13 +1211,11 @@ export default function OPD() {
       {
         date: prescription.date,
         medicines: prescription.medicines,
-        advice: serializePrescriptionAdvice(
-          prescription.advice,
-          prescription.examinationFindings,
-          prescription.pastHistory,
-          prescription.drawing,
-          prescription.diagnosis
-        ),
+        advice: prescription.advice,
+        examinationFindings: prescription.examinationFindings,
+        pastHistory: prescription.pastHistory,
+        drawing: prescription.drawing,
+        diagnosis: prescription.diagnosis,
         vitals: activeVitals
       },
       doctor,
@@ -3045,6 +3072,7 @@ export default function OPD() {
     const docObj = users.find(u => u.name === (latestRx.doctor || latestRx.doctor_name || doctorNameFallback));
     const latestVitals = selectedPatientVitals && selectedPatientVitals.length > 0 ? selectedPatientVitals[0] : undefined;
 
+    const unpacked = deserializePrescriptionAdvice(latestRx.advice || latestRx.notes || '');
     const html = getPrescriptionPrintHtml(
       {
         name: patient.name,
@@ -3057,14 +3085,21 @@ export default function OPD() {
       {
         date: latestRx.date || latestRx.prescription_date || getLocalDateString(),
         medicines: latestRx.medicines || latestRx.medications || [],
-        advice: latestRx.advice || latestRx.notes || '',
+        advice: unpacked.advice,
+        examinationFindings: unpacked.examinationFindings,
+        pastHistory: unpacked.pastHistory,
+        drawing: unpacked.drawing,
+        diagnosis: unpacked.diagnosis,
         vitals: latestRx.vitals || (latestVitals ? {
           bp: latestVitals.bp,
           pulse: latestVitals.pulse,
           temp: latestVitals.temp,
           spo2: latestVitals.spo2,
           weight: latestVitals.weight,
-          rr: latestVitals.rr || latestVitals.respiration
+          rr: latestVitals.rr || latestVitals.respiration,
+          cbs: latestVitals.cbs,
+          rs: latestVitals.rs,
+          cns: latestVitals.cns
         } : undefined)
       },
       docObj,
@@ -5022,6 +5057,35 @@ export default function OPD() {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2 bg-amber-50/40 border border-amber-200 rounded-xl p-3">
+                    <Label className="text-xs font-bold text-amber-800 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                      Allergies & Drug Sensitivities
+                    </Label>
+                    <textarea 
+                      disabled={isReceptionist}
+                      placeholder="e.g. Penicillin, Sulfa drugs, No known drug allergies (NKDA)..." 
+                      value={prescription.allergies || ''}
+                      onChange={(e) => setPrescription({...prescription, allergies: e.target.value})}
+                      rows={2}
+                      className="flex w-full rounded-md border border-amber-200 bg-white px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[42px] resize-y"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-slate-700">Past Medical History / Previous Treatments</Label>
+                    <textarea 
+                      disabled={isReceptionist}
+                      placeholder="e.g. Known hypertensive for 5 years, Type-2 DM..." 
+                      value={prescription.pastHistory || ''}
+                      onChange={(e) => setPrescription({...prescription, pastHistory: e.target.value})}
+                      rows={2}
+                      className="flex w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[42px] resize-y"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-xs font-bold text-slate-600">Diagnosis / Clinical Impression</Label>
                     <Input 
@@ -5046,7 +5110,7 @@ export default function OPD() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label className="text-xs font-bold text-slate-600">Examination Findings (Clinical Findings)</Label>
                     <textarea 
@@ -5054,18 +5118,6 @@ export default function OPD() {
                       placeholder="e.g. Abdomen soft, tenderness in epigastrium..." 
                       value={prescription.examinationFindings || ''}
                       onChange={(e) => setPrescription({...prescription, examinationFindings: e.target.value})}
-                      rows={3}
-                      className="flex w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[70px] resize-y"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-slate-600">Past Medical History / Allergies / Previous Treatments</Label>
-                    <textarea 
-                      disabled={isReceptionist}
-                      placeholder="e.g. Known hypertensive for 5 years, penicillin allergy..." 
-                      value={prescription.pastHistory || ''}
-                      onChange={(e) => setPrescription({...prescription, pastHistory: e.target.value})}
                       rows={3}
                       className="flex w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[70px] resize-y"
                     />
@@ -5256,6 +5308,42 @@ export default function OPD() {
                       className="h-9 bg-white"
                     />
                   </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-slate-500 uppercase font-semibold">CBS</Label>
+                    <Input 
+                      placeholder="e.g. S1 S2 heard" 
+                      value={prescription.vitals?.cbs || ''} 
+                      onChange={(e) => setPrescription({
+                        ...prescription,
+                        vitals: { ...(prescription.vitals || {}), cbs: e.target.value }
+                      })}
+                      className="h-9 bg-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-slate-500 uppercase font-semibold">RS</Label>
+                    <Input 
+                      placeholder="e.g. Bilateral clear" 
+                      value={prescription.vitals?.rs || ''} 
+                      onChange={(e) => setPrescription({
+                        ...prescription,
+                        vitals: { ...(prescription.vitals || {}), rs: e.target.value }
+                      })}
+                      className="h-9 bg-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-slate-500 uppercase font-semibold">CNS</Label>
+                    <Input 
+                      placeholder="e.g. Conscious, oriented" 
+                      value={prescription.vitals?.cns || ''} 
+                      onChange={(e) => setPrescription({
+                        ...prescription,
+                        vitals: { ...(prescription.vitals || {}), cns: e.target.value }
+                      })}
+                      className="h-9 bg-white"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -5301,6 +5389,7 @@ export default function OPD() {
                   const docObj = users.find(u => u.name === (rx.doctor || rx.doctor_name));
                   const latestVitals = selectedPatientVitals && selectedPatientVitals.length > 0 ? selectedPatientVitals[0] : undefined;
 
+                  const unpacked = deserializePrescriptionAdvice(rx.advice || rx.notes || '');
                   const html = getPrescriptionPrintHtml(
                     {
                       name: selectedPatient.name,
@@ -5313,14 +5402,21 @@ export default function OPD() {
                     {
                       date: rx.date || rx.prescription_date,
                       medicines: rx.medicines || rx.medications || [],
-                      advice: rx.advice || rx.notes || '',
+                      advice: unpacked.advice,
+                      examinationFindings: unpacked.examinationFindings,
+                      pastHistory: unpacked.pastHistory,
+                      drawing: unpacked.drawing,
+                      diagnosis: unpacked.diagnosis,
                       vitals: latestVitals ? {
                         bp: latestVitals.bp,
                         pulse: latestVitals.pulse,
                         temp: latestVitals.temp,
                         spo2: latestVitals.spo2,
                         weight: latestVitals.weight,
-                        rr: latestVitals.rr || latestVitals.respiration
+                        rr: latestVitals.rr || latestVitals.respiration,
+                        cbs: latestVitals.cbs,
+                        rs: latestVitals.rs,
+                        cns: latestVitals.cns
                       } : undefined
                     },
                     docObj,
@@ -5462,6 +5558,7 @@ export default function OPD() {
                 const docObj = users.find(u => u.name === (rx.doctor || rx.doctor_name));
                 const latestVitals = selectedPatientVitals && selectedPatientVitals.length > 0 ? selectedPatientVitals[0] : undefined;
 
+                const unpacked = deserializePrescriptionAdvice(rx.advice || rx.notes || '');
                 const html = getPrescriptionPrintHtml(
                   {
                     name: selectedPatient.name,
@@ -5474,14 +5571,21 @@ export default function OPD() {
                   {
                     date: rx.date || rx.prescription_date,
                     medicines: rx.medicines || rx.medications || [],
-                    advice: rx.advice || rx.notes || '',
+                    advice: unpacked.advice,
+                    examinationFindings: unpacked.examinationFindings,
+                    pastHistory: unpacked.pastHistory,
+                    drawing: unpacked.drawing,
+                    diagnosis: unpacked.diagnosis,
                     vitals: latestVitals ? {
                       bp: latestVitals.bp,
                       pulse: latestVitals.pulse,
                       temp: latestVitals.temp,
                       spo2: latestVitals.spo2,
                       weight: latestVitals.weight,
-                      rr: latestVitals.rr || latestVitals.respiration
+                      rr: latestVitals.rr || latestVitals.respiration,
+                      cbs: latestVitals.cbs,
+                      rs: latestVitals.rs,
+                      cns: latestVitals.cns
                     } : undefined
                   },
                   docObj,

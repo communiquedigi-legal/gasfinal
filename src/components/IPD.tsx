@@ -312,7 +312,8 @@ export default function IPD() {
     doctorId: '', 
     ward: '', 
     bedId: '',
-    urgency: 'Routine'
+    urgency: 'Routine',
+    caseType: 'General'
   });
 
   const currentUser = storage.get(STORAGE_KEYS.SESSION_USER, null);
@@ -1278,6 +1279,274 @@ export default function IPD() {
     }, 500);
   };
 
+  const printDischargeCard = (summary: any) => {
+    if (!summary) return;
+    const pat = patients.find(p => p.id === (summary.patient_id || summary.patientId)) || MOCK_PATIENTS.find(p => p.id === (summary.patient_id || summary.patientId));
+    const rawHospitalInfo = storage.get(STORAGE_KEYS.HOSPITAL_INFO, null);
+    const hospitalName = rawHospitalInfo?.name || 'NEW GASTRO PLUS HOSPITAL';
+    const hospitalSubHeader = rawHospitalInfo?.address || 'Healthcare Center';
+    const hospitalPhone = rawHospitalInfo?.phone || '+91 98765 43210';
+    const hospitalEmail = rawHospitalInfo?.email || 'contact@gastroplushospital.com';
+
+    // Temporary iframe for printing
+    const iframeId = 'discharge-card-iframe-temp';
+    let iframe = document.getElementById(iframeId) as HTMLIFrameElement;
+    if (iframe) {
+      document.body.removeChild(iframe);
+    }
+    
+    iframe = document.createElement('iframe') as HTMLIFrameElement;
+    iframe.id = iframeId;
+    iframe.style.position = 'fixed';
+    iframe.style.bottom = '0';
+    iframe.style.right = '0';
+    iframe.style.width = '0px';
+    iframe.style.height = '0px';
+    iframe.style.border = 'none';
+    iframe.style.margin = '0';
+    iframe.style.padding = '0';
+    iframe.style.opacity = '0';
+    iframe.style.pointerEvents = 'none';
+    
+    document.body.appendChild(iframe);
+    
+    const iframeDoc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!iframeDoc) {
+      toast.error('Unable to initialize printing container');
+      return;
+    }
+
+    const medsList = summary.medications
+      ? summary.medications.split('\n').map((m: string) => `<li>${m}</li>`).join('')
+      : '<li>No home medications prescribed</li>';
+
+    const safeDischargeDate = summary.dischargeDate 
+      ? new Date(summary.dischargeDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+      : new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    const safeFollowUpDate = summary.followUpDate
+      ? new Date(summary.followUpDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+      : 'As advised / SOS';
+
+    const patientAdmission = admissions.find((a: any) => a.patient_id === pat?.id || a.patientId === pat?.id);
+    const safeAdmissionDate = summary.admissionDate || summary.admission_date || patientAdmission?.admission_date || patientAdmission?.admissionDate || patientAdmission?.created_at || summary.created_at || new Date().toISOString();
+    const formattedAdmissionDate = new Date(safeAdmissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    const caseClassification = patientAdmission?.case_type || 'General';
+
+    const cardHtml = `
+      <html>
+        <head>
+          <title>Discharge Card - ${pat?.name || 'Patient'}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+            body { 
+              font-family: 'Inter', sans-serif; 
+              margin: 20px; 
+              padding: 0;
+              color: #1e293b;
+              background-color: #ffffff;
+            }
+            .card-border {
+              border: 3px double #0284c7;
+              padding: 20px;
+              border-radius: 8px;
+              max-width: 650px;
+              margin: 0 auto;
+            }
+            .hospital-banner { 
+              border-bottom: 2px solid #0284c7; 
+              padding-bottom: 8px; 
+              margin-bottom: 15px; 
+              text-align: center;
+            }
+            .hospital-name {
+              font-size: 18px;
+              font-weight: 800;
+              color: #0284c7;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .hospital-sub {
+              font-size: 10px;
+              color: #64748b;
+              margin-top: 2px;
+            }
+            .card-title-badge { 
+              text-align: center; 
+              font-size: 13px; 
+              font-weight: 800; 
+              margin-bottom: 15px; 
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              color: #ffffff;
+              background-color: #0284c7;
+              padding: 4px 10px;
+              border-radius: 4px;
+              display: inline-block;
+              margin-left: auto;
+              margin-right: auto;
+            }
+            .badge-wrapper {
+              text-align: center;
+              margin-bottom: 15px;
+            }
+            .grid-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 15px;
+            }
+            .grid-table td {
+              padding: 6px 10px;
+              border: 1px solid #cbd5e1;
+              font-size: 11px;
+            }
+            .grid-table td.label {
+              font-weight: 700;
+              background-color: #f1f5f9;
+              color: #334155;
+              width: 25%;
+            }
+            .section-title {
+              font-size: 11px;
+              font-weight: 800;
+              color: #0284c7;
+              border-bottom: 1px solid #0284c7;
+              padding-bottom: 2px;
+              margin-bottom: 8px;
+              text-transform: uppercase;
+            }
+            .section-content {
+              font-size: 11px;
+              line-height: 1.5;
+              color: #1e293b;
+              margin-bottom: 12px;
+            }
+            .meds-list {
+              margin: 0;
+              padding-left: 15px;
+              font-size: 11px;
+              line-height: 1.5;
+              color: #1e293b;
+              margin-bottom: 12px;
+            }
+            .meds-list li {
+              margin-bottom: 4px;
+            }
+            .footer-sign {
+              margin-top: 30px;
+              display: flex;
+              justify-content: space-between;
+              font-size: 10px;
+            }
+            .sig-box {
+              text-align: center;
+              width: 180px;
+            }
+            .sig-line {
+              border-top: 1px solid #cbd5e1;
+              margin-top: 30px;
+              padding-top: 4px;
+              font-weight: 600;
+              color: #475569;
+            }
+            @media print {
+              body { margin: 10px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="card-border">
+            <div class="hospital-banner">
+              <div class="hospital-name">${hospitalName}</div>
+              <div class="hospital-sub">
+                ${hospitalSubHeader} | Tel: ${hospitalPhone}
+              </div>
+            </div>
+            
+            <div class="badge-wrapper">
+              <div class="card-title-badge">Patient Discharge Card</div>
+            </div>
+            
+            <table class="grid-table">
+              <tr>
+                <td class="label">Patient Name</td>
+                <td style="font-weight: 700;">${pat?.name || 'Walk-in'}</td>
+                <td class="label">MRN / ID</td>
+                <td>${pat?.mrn || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td class="label">Age / Gender</td>
+                <td>${pat?.age ? `${pat.age} Yrs` : 'N/A'} / ${pat?.gender || 'N/A'}</td>
+                <td class="label">Contact No.</td>
+                <td>${pat?.phone || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td class="label">Admission Date</td>
+                <td>${formattedAdmissionDate}</td>
+                <td class="label">Discharge Date</td>
+                <td>${safeDischargeDate}</td>
+              </tr>
+              <tr>
+                <td class="label">Discharge Status</td>
+                <td style="font-weight: 700; color: #b91c1c;">${summary.dischargeType || 'Routine / Improved'}</td>
+                <td class="label">Case Class</td>
+                <td style="font-weight: 700; color: ${caseClassification !== 'General' ? '#dc2626' : '#1e293b'};">
+                  ${caseClassification === 'General' ? 'General Case' : caseClassification}
+                </td>
+              </tr>
+              <tr>
+                <td class="label">Follow-up SOS</td>
+                <td>${safeFollowUpDate}</td>
+                <td class="label">Attending MD</td>
+                <td>${summary.dischargeBy || 'Primary MD'}</td>
+              </tr>
+            </table>
+
+            <div class="section-title">Final Diagnosis / Treatment Summary</div>
+            <div class="section-content">${summary.clinicalSummary || 'Discharged in stable clinical conditions. Continue home medications exactly as directed.'}</div>
+
+            <div class="section-title">Discharge Prescription / Home Meds</div>
+            <ul class="meds-list">
+              ${medsList}
+            </ul>
+
+            <div class="footer-sign">
+              <div class="sig-box">
+                <div class="sig-line">Prepared / Nursing Staff</div>
+              </div>
+              <div class="sig-box">
+                <div class="sig-line">Consultant Sign-off</div>
+              </div>
+            </div>
+          </div>
+
+          <script>
+            window.onload = () => {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    iframeDoc.write(cardHtml);
+    iframeDoc.close();
+
+    setTimeout(() => {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        
+        setTimeout(() => {
+          if (document.getElementById(iframeId)) {
+            document.body.removeChild(iframe);
+          }
+        }, 3000);
+      }
+    }, 500);
+  };
+
   const logAudit = (action: string, entityId: string, details: any) => {
     const logs = storage.get(STORAGE_KEYS.AUDIT_LOGS, []);
     const newLog = {
@@ -1915,6 +2184,22 @@ export default function IPD() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-2">
+                    <Label>Case Classification</Label>
+                    <Select 
+                      value={admissionForm.caseType || 'General'}
+                      onValueChange={(v) => setAdmissionForm({...admissionForm, caseType: v})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select case classification" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="General">General / Routine Case</SelectItem>
+                        <SelectItem value="MLC">🚨 Medico-Legal Case (MLC)</SelectItem>
+                        <SelectItem value="PMLC">⚠️ Pre Medico-Legal Case (PMLC)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <DialogFooter>
                   <DialogTrigger asChild>
@@ -1929,6 +2214,7 @@ export default function IPD() {
                         doctor_id: admissionForm.doctorId || null,
                         ward: admissionForm.ward,
                         urgency: admissionForm.urgency,
+                        case_type: admissionForm.caseType || 'General',
                         status: 'Admitted'
                       };
 
@@ -2226,7 +2512,14 @@ export default function IPD() {
                               {patient.name.charAt(0)}
                             </div>
                             <div className="overflow-hidden">
-                              <p className="text-sm font-semibold truncate">{patient.name}</p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="text-sm font-semibold truncate">{patient.name}</p>
+                                {admission?.case_type && admission.case_type !== 'General' && (
+                                  <Badge className={`${admission.case_type === 'MLC' ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'} text-white text-[8px] h-4 px-1 border-none font-black uppercase tracking-wider`}>
+                                    {admission.case_type}
+                                  </Badge>
+                                )}
+                              </div>
                               <p className="text-[10px] text-muted-foreground">{patient.phone} • {patient.mrn}</p>
                             </div>
                           </div>
@@ -2382,7 +2675,14 @@ export default function IPD() {
                                 {patient?.name?.charAt(0) || 'P'}
                               </div>
                               <div>
-                                <p className="text-sm font-bold">{patient?.name || 'Registered Patient'}</p>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <p className="text-sm font-bold">{patient?.name || 'Registered Patient'}</p>
+                                  {admission?.case_type && admission.case_type !== 'General' && (
+                                    <Badge className={`${admission.case_type === 'MLC' ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'} text-white text-[8px] h-4 px-1 border-none font-black uppercase tracking-wider`}>
+                                      {admission.case_type}
+                                    </Badge>
+                                  )}
+                                </div>
                                 <p className="text-[10px] text-slate-500">{patient?.mrn || 'N/A'}</p>
                               </div>
                             </div>
@@ -2786,6 +3086,23 @@ export default function IPD() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                    <Label className="text-xs font-bold text-slate-700">Case Classification</Label>
+                    <Select 
+                      value={admissionForm.caseType || 'General'}
+                      onValueChange={(v) => setAdmissionForm({...admissionForm, caseType: v})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select case type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="General">General / Routine Case</SelectItem>
+                        <SelectItem value="MLC">🚨 Medico-Legal Case (MLC)</SelectItem>
+                        <SelectItem value="PMLC">⚠️ Pre Medico-Legal Case (PMLC)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="border-t border-slate-100 pt-5 mt-4 flex justify-end">
@@ -2798,6 +3115,7 @@ export default function IPD() {
                         doctor_id: admissionForm.doctorId || null,
                         ward: admissionForm.ward,
                         urgency: admissionForm.urgency,
+                        case_type: admissionForm.caseType || 'General',
                         status: 'Admitted'
                       };
 
@@ -4721,6 +5039,13 @@ export default function IPD() {
                     onClick={() => setIsSummaryDetailsOpen(false)}
                   >
                     Close Preview
+                  </Button>
+                  <Button
+                    className="h-9 text-xs bg-sky-600 hover:bg-sky-700 text-white gap-2"
+                    onClick={() => printDischargeCard(dischargedSummaryToShow)}
+                  >
+                    <Printer className="w-4 h-4" />
+                    Print Discharge Card
                   </Button>
                   <Button
                     className="h-9 text-xs bg-teal-600 hover:bg-teal-700 text-white gap-2"

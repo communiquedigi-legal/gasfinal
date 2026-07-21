@@ -6199,7 +6199,7 @@ function executeOfflineQuery(key: string, args: any[]): any {
 let supabaseUnreachable = false;
 let connectionCheckPromise: Promise<boolean> | null = null;
 let lastCheckTime = 0;
-const CHECK_COOLDOWN_MS = 6000; // Cooldown of 6 seconds between connection checks if offline
+const CHECK_COOLDOWN_MS = 30000; // Cooldown of 30 seconds between connection checks if offline
 
 function isNetworkFailure(err: any): boolean {
   if (!err) return false;
@@ -6208,13 +6208,23 @@ function isNetworkFailure(err: any): boolean {
   const msg = (typeof err === 'string' ? err : (err.message || err.error_description || err.error || String(err))).toLowerCase();
   return (
     msg.includes('timeout') ||
+    msg.includes('timed out') ||
+    msg.includes('time out') ||
+    msg.includes('timed_out') ||
+    msg.includes('database connection') ||
     msg.includes('fetch') ||
     msg.includes('network') ||
     msg.includes('unreachable') ||
     msg.includes('failed to connect') ||
     msg.includes('connection refused') ||
     msg.includes('abort') ||
-    msg.includes('failed')
+    msg.includes('failed') ||
+    msg.includes('refused') ||
+    msg.includes('reset') ||
+    msg.includes('socket') ||
+    msg.includes('handshake') ||
+    msg.includes('deadline') ||
+    msg.includes('empty response')
   );
 }
 
@@ -6420,10 +6430,9 @@ for (const [key, value] of Object.entries(rawSupabaseService)) {
           
           if (isNetworkIssue) {
             console.warn(`[Supabase Query Warning] Query ${key} timed out or network failed. Falling back to offline cached storage representation.`);
-            if (config) {
-              toastSlowConnection();
-              return executeOfflineQuery(key, args);
-            }
+            supabaseUnreachable = true;
+            toastSlowConnection();
+            return executeOfflineQuery(key, args);
           } else {
             console.error(`[Supabase Error] Query ${key} failed:`, err);
           }
