@@ -264,4 +264,5 @@ export const STORAGE_KEYS = {
   BREAKDOWNS: 'hms_breakdowns',
   PRESCRIPTION_TEMPLATES: 'hms_prescription_templates',
   BED_TRANSFERS: 'hms_bed_transfers',
+  STAFF_ATTENDANCE: 'hms_staff_attendance',
 };
