@@ -385,11 +385,15 @@ export default function Staff() {
   const handleQrPunch = (scannedId: string) => {
     if (!scannedId) return;
     
-    const cleanId = scannedId.replace(/^EMP-/i, '').trim();
-    const employee = staff.find(s => 
-      String(s.id).toLowerCase() === cleanId.toLowerCase() ||
-      String(s.id).substring(0, 8).toLowerCase() === cleanId.toLowerCase()
-    );
+    const cleanId = scannedId.replace(/^EMP-/i, '').trim().toLowerCase();
+    const employee = staff.find(s => {
+      const dbId = String(s.id).toLowerCase();
+      return dbId === cleanId ||
+             dbId.substring(0, 8) === cleanId ||
+             dbId.substring(0, 6) === cleanId ||
+             dbId.replace(/-/g, '').startsWith(cleanId.replace(/-/g, '')) ||
+             cleanId.replace(/-/g, '').startsWith(dbId.replace(/-/g, ''));
+    });
 
     if (!employee) {
       toast.error(`Employee ID "${scannedId}" not found in system.`);
@@ -870,7 +874,7 @@ export default function Staff() {
                             </Avatar>
                             <div>
                               <p className="font-semibold text-sm text-slate-800">{user.name}</p>
-                              <p className="text-[10px] text-muted-foreground">EMP-{user.id.substring(0, 6).toUpperCase()}</p>
+                              <p className="text-[10px] text-muted-foreground">EMP-{user.id.substring(0, 8).toUpperCase()}</p>
                             </div>
                           </div>
                         </TableCell>
