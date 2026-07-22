@@ -24,7 +24,8 @@ import {
   Database,
   Sparkles,
   RefreshCw,
-  Settings2
+  Settings2,
+  UserPlus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -984,6 +985,49 @@ export default function Billing() {
   const [isGeneratingBill, setIsGeneratingBill] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<any>(null);
+
+  // Quick Add Patient state
+  const [isQuickAddPatientOpen, setIsQuickAddPatientOpen] = useState(false);
+  const [quickPatient, setQuickPatient] = useState({
+    name: '',
+    phone: '',
+    gender: 'Male',
+    age: '30'
+  });
+  const [isCreatingPatient, setIsCreatingPatient] = useState(false);
+
+  const handleSaveQuickPatient = async () => {
+    if (!quickPatient.name.trim()) {
+      toast.error('Please enter patient name');
+      return;
+    }
+    setIsCreatingPatient(true);
+    try {
+      const created = await supabaseService.createPatient({
+        name: quickPatient.name.trim(),
+        phone: quickPatient.phone.trim() || 'N/A',
+        gender: quickPatient.gender || 'Other',
+        age: parseInt(quickPatient.age) || 30,
+        address: 'Outpatient',
+        status: 'Outpatient'
+      });
+      if (created) {
+        toast.success(`Patient "${created.name}" added successfully!`);
+        await fetchData();
+        setNewInvoice((prev: any) => ({ ...prev, patientId: created.id }));
+        setPatientSearchTerm(created.name);
+        setIsQuickAddPatientOpen(false);
+        setShowPatientResults(false);
+      } else {
+        toast.error('Failed to add patient');
+      }
+    } catch (err) {
+      console.error('Error creating quick patient:', err);
+      toast.error('Failed to add patient');
+    } finally {
+      setIsCreatingPatient(false);
+    }
+  };
 
   // States for Receive Payment Dialog
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
@@ -2377,10 +2421,26 @@ export default function Billing() {
               </DialogHeader>
               <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
                 <div className="space-y-2 relative">
-                  <Label>Select Patient (Search by Name or Phone)</Label>
+                  <div className="flex justify-between items-center">
+                    <Label className="text-xs font-bold text-slate-700">Select Patient (Search by Name or Phone)</Label>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 text-xs text-medical-blue hover:text-blue-800 hover:bg-blue-50 gap-1.5 px-2 font-bold"
+                      onClick={() => {
+                        setQuickPatient({ name: patientSearchTerm.trim(), phone: '', gender: 'Male', age: '30' });
+                        setIsQuickAddPatientOpen(true);
+                        setShowPatientResults(false);
+                      }}
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      + Add New Patient
+                    </Button>
+                  </div>
                   <div className="relative">
                     <Input 
-                      placeholder="Start typing name or phone..." 
+                      placeholder="Type name, MRN, or phone number..." 
                       value={patientSearchTerm}
                       onChange={(e) => {
                         setPatientSearchTerm(e.target.value);
@@ -2390,43 +2450,70 @@ export default function Billing() {
                         }
                       }}
                       onFocus={() => setShowPatientResults(true)}
+                      className="pr-9"
                     />
-                    <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
                   </div>
                   
-                  {showPatientResults && patientSearchTerm.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-[200px] overflow-y-auto custom-scrollbar">
-                      {patients.filter(p => 
-                        p.name.toLowerCase().includes(patientSearchTerm.toLowerCase()) || 
-                        (p.phone || '').includes(patientSearchTerm) ||
-                        (p.mrn || '').toLowerCase().includes(patientSearchTerm.toLowerCase())
-                      ).length > 0 ? (
-                        patients.filter(p => 
-                          p.name.toLowerCase().includes(patientSearchTerm.toLowerCase()) || 
-                          (p.phone || '').includes(patientSearchTerm) ||
-                          (p.mrn || '').toLowerCase().includes(patientSearchTerm.toLowerCase())
-                        ).map(p => (
-                          <div 
-                            key={p.id} 
-                            className="px-4 py-2 hover:bg-slate-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-0"
-                            onClick={() => {
-                              setNewInvoice({...newInvoice, patientId: p.id});
-                              setPatientSearchTerm(p.name);
-                              setShowPatientResults(false);
-                            }}
-                          >
-                            <div>
-                              <p className="text-sm font-medium">{p.name}</p>
-                              <p className="text-[10px] text-muted-foreground">{p.phone} • MRN: {p.mrn}</p>
+                  {showPatientResults && (
+                    <div className="absolute z-30 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-[260px] overflow-y-auto custom-scrollbar">
+                      {(() => {
+                        const filtered = patients.filter(p => {
+                          if (!patientSearchTerm.trim()) return true;
+                          const term = patientSearchTerm.toLowerCase().trim();
+                          return (
+                            (p.name || '').toLowerCase().includes(term) || 
+                            (p.phone || '').includes(term) ||
+                            (p.mrn || '').toLowerCase().includes(term)
+                          );
+                        });
+
+                        return (
+                          <>
+                            {filtered.length > 0 ? (
+                              filtered.map(p => (
+                                <div 
+                                  key={p.id} 
+                                  className="px-4 py-2.5 hover:bg-blue-50/70 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-0 transition-colors"
+                                  onClick={() => {
+                                    setNewInvoice({...newInvoice, patientId: p.id});
+                                    setPatientSearchTerm(p.name);
+                                    setShowPatientResults(false);
+                                  }}
+                                >
+                                  <div>
+                                    <p className="text-sm font-semibold text-slate-800">{p.name}</p>
+                                    <p className="text-[11px] text-slate-500">
+                                      {p.phone && p.phone !== 'N/A' ? `Ph: ${p.phone} • ` : ''}MRN: {p.mrn || 'N/A'} {p.gender ? `• ${p.gender}` : ''}
+                                    </p>
+                                  </div>
+                                  {newInvoice.patientId === p.id && <CheckCircle2 className="w-4 h-4 text-medical-blue" />}
+                                </div>
+                              ))
+                            ) : (
+                              <div className="px-4 py-3 text-center text-xs text-slate-500">
+                                No registered patient matching "{patientSearchTerm}".
+                              </div>
+                            )}
+
+                            {/* Quick add patient action at the bottom of the list */}
+                            <div 
+                              className="px-4 py-3 hover:bg-blue-100/80 cursor-pointer flex items-center justify-between border-t border-blue-100 bg-blue-50/90 text-medical-blue font-bold text-xs sticky bottom-0"
+                              onClick={() => {
+                                setQuickPatient({ name: patientSearchTerm.trim(), phone: '', gender: 'Male', age: '30' });
+                                setIsQuickAddPatientOpen(true);
+                                setShowPatientResults(false);
+                              }}
+                            >
+                              <div className="flex items-center gap-2">
+                                <UserPlus className="w-4 h-4 text-medical-blue" />
+                                <span>{patientSearchTerm.trim() ? `+ Register "${patientSearchTerm.trim()}" as New Patient` : '+ Register New Patient'}</span>
+                              </div>
+                              <Badge className="bg-medical-blue text-white text-[9px] px-2 py-0.5">Quick Register</Badge>
                             </div>
-                            {newInvoice.patientId === p.id && <CheckCircle2 className="w-4 h-4 text-medical-blue" />}
-                          </div>
-                        ))
-                      ) : (
-                        <div className="px-4 py-4 text-center text-sm text-muted-foreground">
-                          No patients found.
-                        </div>
-                      )}
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                   
@@ -2438,13 +2525,15 @@ export default function Billing() {
                         return (
                           <>
                             <div className="flex justify-between items-center">
-                              <span className="font-bold text-blue-500 uppercase tracking-wider">Patient Details</span>
-                              <Badge variant="outline" className="text-[8px] border-blue-200 text-blue-600">{doctor?.department || 'General'}</Badge>
+                              <span className="font-bold text-blue-600 uppercase tracking-wider">Selected Patient Details</span>
+                              <Badge variant="outline" className="text-[9px] border-blue-200 text-blue-700 bg-white font-semibold">{doctor?.department || p?.status || 'Outpatient'}</Badge>
                             </div>
-                            <p className="font-bold text-blue-900 text-[13px]">{p?.name}</p>
+                            <p className="font-bold text-blue-900 text-sm">{p?.name}</p>
                             <div className="flex gap-4 text-blue-700 font-medium">
-                              <span>Ph: {p?.phone}</span>
-                              <span>MRN: {p?.mrn}</span>
+                              <span>Ph: {p?.phone || 'N/A'}</span>
+                              <span>MRN: {p?.mrn || 'N/A'}</span>
+                              {p?.gender && <span>Gender: {p?.gender}</span>}
+                              {p?.age && <span>Age: {p?.age}</span>}
                             </div>
                           </>
                         );
@@ -4738,6 +4827,76 @@ export default function Billing() {
           <OPD />
         </div>
       )}
+
+      {/* Quick Add Patient Modal */}
+      <Dialog open={isQuickAddPatientOpen} onOpenChange={setIsQuickAddPatientOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-medical-blue">
+              <UserPlus className="w-5 h-5 text-medical-blue" />
+              Quick Register New Patient
+            </DialogTitle>
+            <DialogDescription>
+              Add patient details quickly to proceed with independent billing & invoicing.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">Patient Full Name *</Label>
+              <Input 
+                placeholder="Enter patient full name..." 
+                value={quickPatient.name} 
+                onChange={(e) => setQuickPatient({ ...quickPatient, name: e.target.value })}
+                className="h-10 border-slate-200"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">Phone Number</Label>
+              <Input 
+                placeholder="e.g. 9876543210 (Optional)" 
+                value={quickPatient.phone} 
+                onChange={(e) => setQuickPatient({ ...quickPatient, phone: e.target.value })}
+                className="h-10 border-slate-200"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-700">Gender</Label>
+                <Select value={quickPatient.gender} onValueChange={(val) => setQuickPatient({ ...quickPatient, gender: val })}>
+                  <SelectTrigger className="h-10 border-slate-200">
+                    <SelectValue placeholder="Gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-700">Age (Years)</Label>
+                <Input 
+                  type="number"
+                  placeholder="e.g. 35" 
+                  value={quickPatient.age} 
+                  onChange={(e) => setQuickPatient({ ...quickPatient, age: e.target.value })}
+                  className="h-10 border-slate-200"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setIsQuickAddPatientOpen(false)} disabled={isCreatingPatient}>
+              Cancel
+            </Button>
+            <Button className="bg-medical-blue gap-2" onClick={handleSaveQuickPatient} disabled={isCreatingPatient || !quickPatient.name.trim()}>
+              {isCreatingPatient && <Loader2 className="w-4 h-4 animate-spin" />}
+              {isCreatingPatient ? 'Registering...' : 'Register & Select'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
