@@ -45,7 +45,8 @@ export function getPathologyReportHtml(
 
   // Build primary rows
   let rowsHtml = '';
-  if (order.test_name.toLowerCase().includes('cbc') || order.test_name.toLowerCase().includes('blood count')) {
+  const testNameLower = (order?.test_name || '').toLowerCase();
+  if (testNameLower.includes('cbc') || testNameLower.includes('blood count')) {
     rowsHtml = `
       <tr style="border-bottom: 1px solid #e2e8f0;">
         <td style="padding: 12px 8px; font-weight: 600; font-size: 13px; color: #1e293b;">Hemoglobin</td>

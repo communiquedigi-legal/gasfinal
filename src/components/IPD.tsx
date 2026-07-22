@@ -3804,15 +3804,15 @@ export default function IPD() {
                     {showDischargeSearchDropdown && dischargeSearchTerm.length > 0 && (
                       <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-[190px] overflow-y-auto divide-y divide-slate-100">
                         {displayPatients.filter(p =>
-                          (p.name.toLowerCase().includes(dischargeSearchTerm.toLowerCase()) ||
+                          ((p.name || '').toLowerCase().includes((dischargeSearchTerm || '').toLowerCase()) ||
                           (p.phone || '').includes(dischargeSearchTerm) ||
-                          (p.mrn || '').toLowerCase().includes(dischargeSearchTerm.toLowerCase())) &&
+                          (p.mrn || '').toLowerCase().includes((dischargeSearchTerm || '').toLowerCase())) &&
                           p.status !== 'Discharged' && p.status !== 'discharged'
                         ).length > 0 ? (
                           displayPatients.filter(p =>
-                            (p.name.toLowerCase().includes(dischargeSearchTerm.toLowerCase()) ||
+                            ((p.name || '').toLowerCase().includes((dischargeSearchTerm || '').toLowerCase()) ||
                             (p.phone || '').includes(dischargeSearchTerm) ||
-                            (p.mrn || '').toLowerCase().includes(dischargeSearchTerm.toLowerCase())) &&
+                            (p.mrn || '').toLowerCase().includes((dischargeSearchTerm || '').toLowerCase())) &&
                             p.status !== 'Discharged' && p.status !== 'discharged'
                           ).map(p => {
                             const bed = beds.find(b => b.patient_id === p.id || b.patientId === p.id);
@@ -4537,8 +4537,8 @@ export default function IPD() {
                             {dischargeSummaries.filter(summary => {
                               const pat = patients.find(p => p.id === (summary.patient_id || summary.patientId)) || MOCK_PATIENTS.find(p => p.id === (summary.patient_id || summary.patientId));
                               if (!pat) return false;
-                              const matchSearch = pat.name.toLowerCase().includes(reportSearchQuery.toLowerCase()) ||
-                                                  (pat.mrn || '').toLowerCase().includes(reportSearchQuery.toLowerCase()) ||
+                              const matchSearch = (pat.name || '').toLowerCase().includes((reportSearchQuery || '').toLowerCase()) ||
+                                                  (pat.mrn || '').toLowerCase().includes((reportSearchQuery || '').toLowerCase()) ||
                                                   (pat.phone || '').includes(reportSearchQuery);
                               const matchFilter = reportTypeFilter === 'All' || summary.dischargeType === reportTypeFilter;
                               return matchSearch && matchFilter;
@@ -4546,8 +4546,8 @@ export default function IPD() {
                               dischargeSummaries.filter(summary => {
                                 const pat = patients.find(p => p.id === (summary.patient_id || summary.patientId)) || MOCK_PATIENTS.find(p => p.id === (summary.patient_id || summary.patientId));
                                 if (!pat) return false;
-                                const matchSearch = pat.name.toLowerCase().includes(reportSearchQuery.toLowerCase()) ||
-                                                    (pat.mrn || '').toLowerCase().includes(reportSearchQuery.toLowerCase()) ||
+                                const matchSearch = (pat.name || '').toLowerCase().includes((reportSearchQuery || '').toLowerCase()) ||
+                                                    (pat.mrn || '').toLowerCase().includes((reportSearchQuery || '').toLowerCase()) ||
                                                     (pat.phone || '').includes(reportSearchQuery);
                                 const matchFilter = reportTypeFilter === 'All' || summary.dischargeType === reportTypeFilter;
                                 return matchSearch && matchFilter;
@@ -4774,7 +4774,7 @@ export default function IPD() {
                         if (b.status !== 'Occupied' || (!b.patientId && !b.patient_id)) return false;
                         const pat = patients.find(p => p.id === (b.patientId || b.patient_id)) || MOCK_PATIENTS.find(p => p.id === (b.patientId || b.patient_id));
                         if (!pat) return false;
-                        return pat.name.toLowerCase().includes(shiftSearchQuery.toLowerCase()) || 
+                        return (pat.name || '').toLowerCase().includes((shiftSearchQuery || '').toLowerCase()) || 
                                b.bed_number?.toLowerCase().includes(shiftSearchQuery.toLowerCase()) ||
                                b.number?.toLowerCase().includes(shiftSearchQuery.toLowerCase()) ||
                                (pat.mrn || '').toLowerCase().includes(shiftSearchQuery.toLowerCase());

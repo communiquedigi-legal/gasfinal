@@ -1285,7 +1285,7 @@ export default function Lab() {
                     />
                     {showPatientResults && patientSearchTerm.length > 0 && (
                       <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-[200px] overflow-y-auto">
-                        {patients.filter(p => p.name.toLowerCase().includes(patientSearchTerm.toLowerCase())).map(p => (
+                        {patients.filter(p => (p.name || '').toLowerCase().includes((patientSearchTerm || '').toLowerCase())).map(p => (
                           <div 
                             key={p.id} 
                             className="px-4 py-2 hover:bg-slate-50 cursor-pointer"
@@ -1401,14 +1401,14 @@ export default function Lab() {
                   {showPatientResults && patientSearchTerm.length > 0 && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-[200px] overflow-y-auto custom-scrollbar">
                       {patients.filter(p => 
-                        p.name.toLowerCase().includes(patientSearchTerm.toLowerCase()) || 
+                        (p.name || '').toLowerCase().includes((patientSearchTerm || '').toLowerCase()) || 
                         (p.phone || '').includes(patientSearchTerm) ||
-                        (p.mrn || '').toLowerCase().includes(patientSearchTerm.toLowerCase())
+                        (p.mrn || '').toLowerCase().includes((patientSearchTerm || '').toLowerCase())
                       ).length > 0 ? (
                         patients.filter(p => 
-                          p.name.toLowerCase().includes(patientSearchTerm.toLowerCase()) || 
+                          (p.name || '').toLowerCase().includes((patientSearchTerm || '').toLowerCase()) || 
                           (p.phone || '').includes(patientSearchTerm) ||
-                          (p.mrn || '').toLowerCase().includes(patientSearchTerm.toLowerCase())
+                          (p.mrn || '').toLowerCase().includes((patientSearchTerm || '').toLowerCase())
                         ).map(p => (
                           <div 
                             key={p.id} 
@@ -1487,7 +1487,7 @@ export default function Lab() {
                     </SelectTrigger>
                     <SelectContent>
                       {labRates
-                        .filter(t => t.category.toLowerCase() === newTestOrder.category)
+                        .filter(t => (t.category || '').toLowerCase() === (newTestOrder.category || '').toLowerCase())
                         .map(t => (
                           <SelectItem key={t.id || t.name} value={t.name}>
                             {t.name}
@@ -1561,9 +1561,9 @@ export default function Lab() {
                     const createdResults = [];
 
                     for (const test of selectedTestConfigs) {
-                      const isRadiology = test.category?.toLowerCase() === 'radiology' || 
-                                         test.name.toLowerCase().includes('x-ray') || 
-                                         test.name.toLowerCase().includes('scan');
+                      const isRadiology = (test.category || '').toLowerCase() === 'radiology' || 
+                                         (test.name || '').toLowerCase().includes('x-ray') || 
+                                         (test.name || '').toLowerCase().includes('scan');
                       
                       const newOrder = {
                         patient_id: newTestOrder.patientId,
@@ -2607,14 +2607,14 @@ export default function Lab() {
                         {showPatientResults && patientSearchTerm.length > 0 && (
                           <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-[180px] overflow-y-auto custom-scrollbar">
                             {patients.filter(p => 
-                              p.name.toLowerCase().includes(patientSearchTerm.toLowerCase()) || 
+                              (p.name || '').toLowerCase().includes((patientSearchTerm || '').toLowerCase()) || 
                               (p.phone && p.phone.includes(patientSearchTerm)) ||
-                              (p.mrn || '').toLowerCase().includes(patientSearchTerm.toLowerCase())
+                              (p.mrn || '').toLowerCase().includes((patientSearchTerm || '').toLowerCase())
                             ).length > 0 ? (
                               patients.filter(p => 
-                                p.name.toLowerCase().includes(patientSearchTerm.toLowerCase()) || 
+                                (p.name || '').toLowerCase().includes((patientSearchTerm || '').toLowerCase()) || 
                                 (p.phone && p.phone.includes(patientSearchTerm)) ||
-                                (p.mrn || '').toLowerCase().includes(patientSearchTerm.toLowerCase())
+                                (p.mrn || '').toLowerCase().includes((patientSearchTerm || '').toLowerCase())
                               ).map(p => (
                                 <div 
                                   key={p.id} 

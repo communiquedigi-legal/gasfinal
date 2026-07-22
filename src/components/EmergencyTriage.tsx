@@ -787,9 +787,9 @@ export default function EmergencyTriage() {
 
   // Search, filter logic
   const filteredCases = cases.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          c.mrn.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          c.presentingComplaints.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (c.name || '').toLowerCase().includes((searchQuery || '').toLowerCase()) || 
+                          (c.mrn || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+                          (c.presentingComplaints || '').toLowerCase().includes((searchQuery || '').toLowerCase());
     
     const matchesTriage = filterTriage === 'all' || c.triageLevel === filterTriage;
     const matchesStatus = filterStatus === 'all' || c.status === filterStatus;
@@ -1408,7 +1408,7 @@ export default function EmergencyTriage() {
 
               {showPatientResults && patientSearchTerm.length > 0 && (
                 <div className="absolute z-50 left-3 right-3 mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-[140px] overflow-y-auto">
-                  {patientsList.filter(p => p.name.toLowerCase().includes(patientSearchTerm.toLowerCase())).map(p => (
+                  {patientsList.filter(p => (p.name || '').toLowerCase().includes((patientSearchTerm || '').toLowerCase())).map(p => (
                     <div 
                       key={p.id}
                       className="px-3 py-1.5 hover:bg-rose-50 cursor-pointer border-b last:border-0"
