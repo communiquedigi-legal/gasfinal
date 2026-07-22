@@ -63,7 +63,8 @@ export default function Pharmacy() {
   const templateImage = storage.get(STORAGE_KEYS.TEMPLATE_IMAGE, null);
 
   const [pharmacySettings, setPharmacySettings] = useState<any>(() => {
-    return storage.get('hms_pharmacy_settings', DEFAULT_PHARMACY_SETTINGS);
+    const local = storage.get('hms_pharmacy_settings', null);
+    return { ...DEFAULT_PHARMACY_SETTINGS, ...(local || {}) };
   });
 
   const [editingBillInner, setEditingBillInner] = useState<any | null>(null);
@@ -118,24 +119,38 @@ export default function Pharmacy() {
     if (inventory.length === 0) {
       setLoading(true);
     }
-    const [invData, invoicesData, patientsData, dbSettings] = await Promise.all([
-      supabaseService.getPharmacyItems(),
-      supabaseService.getInvoices(),
-      supabaseService.getPatients(),
-      supabaseService.getPharmacySettings ? supabaseService.getPharmacySettings() : Promise.resolve(null)
-    ]);
+    try {
+      const [invData, invoicesData, patientsData, dbSettings] = await Promise.all([
+        supabaseService.getPharmacyItems().catch(() => []),
+        supabaseService.getInvoices().catch(() => []),
+        supabaseService.getPatients().catch(() => []),
+        supabaseService.getPharmacySettings ? supabaseService.getPharmacySettings().catch(() => null) : Promise.resolve(null)
+      ]);
 
-    if (invData) setInventory(invData);
-    if (invoicesData) setBills(invoicesData.filter(inv => inv.type === 'Pharmacy' || inv.invoice_items?.some((item: any) => item.category === 'PHARMACY')));
-    if (patientsData) setPatients(patientsData);
-    if (dbSettings) {
-      setPharmacySettings(dbSettings);
-      const currentSettings = storage.get('hms_pharmacy_settings', null);
-      if (JSON.stringify(currentSettings) !== JSON.stringify(dbSettings)) {
-        storage.set('hms_pharmacy_settings', dbSettings);
+      if (invData && Array.isArray(invData)) setInventory(invData);
+      if (invoicesData && Array.isArray(invoicesData)) {
+        setBills(invoicesData.filter(inv => inv && (inv.type === 'Pharmacy' || (Array.isArray(inv.invoice_items) && inv.invoice_items.some((item: any) => item && item.category === 'PHARMACY')))));
       }
+      if (patientsData && Array.isArray(patientsData)) setPatients(patientsData);
+      if (dbSettings) {
+        const normalizedTerms = Array.isArray(dbSettings.termsAndConditions)
+          ? dbSettings.termsAndConditions
+          : (typeof dbSettings.termsAndConditions === 'string'
+              ? dbSettings.termsAndConditions.split('\n')
+              : DEFAULT_PHARMACY_SETTINGS.termsAndConditions);
+        const merged = {
+          ...DEFAULT_PHARMACY_SETTINGS,
+          ...dbSettings,
+          termsAndConditions: normalizedTerms
+        };
+        setPharmacySettings(merged);
+        storage.set('hms_pharmacy_settings', merged);
+      }
+    } catch (e) {
+      console.error('Pharmacy fetchData error:', e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useDataSync(fetchData);
@@ -143,10 +158,15 @@ export default function Pharmacy() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredInventory = useMemo(() => {
-    return inventory.filter(item => 
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.category && item.category.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
+    if (!Array.isArray(inventory)) return [];
+    const q = (searchQuery || '').toLowerCase().trim();
+    return inventory.filter(item => {
+      if (!item) return false;
+      const nameMatch = item.name ? String(item.name).toLowerCase().includes(q) : false;
+      const catMatch = item.category ? String(item.category).toLowerCase().includes(q) : false;
+      const compMatch = item.composition ? String(item.composition).toLowerCase().includes(q) : false;
+      return nameMatch || catMatch || compMatch;
+    });
   }, [inventory, searchQuery]);
 
   const [newItem, setNewItem] = useState({ 
@@ -1261,7 +1281,7 @@ export default function Pharmacy() {
                         </Button>
                       </div>
                     </div>
-                    {pharmacySettings.logoUrl && (
+                    {pharmacySettings?.logoUrl && (
                       <div className="mt-2 p-2 border border-dashed rounded flex justify-between items-center bg-slate-50">
                         <img src={pharmacySettings.logoUrl} className="max-h-12 max-w-[120px] object-contain rounded" alt="Preview" />
                         <Button 
@@ -1279,7 +1299,7 @@ export default function Pharmacy() {
                     <Label htmlFor="pharmacy-phone">Support Contacts (Phone)</Label>
                     <Input 
                       id="pharmacy-phone" 
-                      value={pharmacySettings.phone}
+                      value={pharmacySettings?.phone || ''}
                       onChange={(e) => setPharmacySettings({ ...pharmacySettings, phone: e.target.value })}
                     />
                   </div>
@@ -1287,7 +1307,7 @@ export default function Pharmacy() {
                     <Label htmlFor="pharmacy-address">Retail Location (Address)</Label>
                     <Input 
                       id="pharmacy-address" 
-                      value={pharmacySettings.address}
+                      value={pharmacySettings?.address || ''}
                       onChange={(e) => setPharmacySettings({ ...pharmacySettings, address: e.target.value })}
                     />
                   </div>
@@ -1295,7 +1315,7 @@ export default function Pharmacy() {
                     <Label htmlFor="pharmacy-gstin">Enterprise Tax Reference (GSTIN)</Label>
                     <Input 
                       id="pharmacy-gstin" 
-                      value={pharmacySettings.gstin}
+                      value={pharmacySettings?.gstin || ''}
                       onChange={(e) => setPharmacySettings({ ...pharmacySettings, gstin: e.target.value })}
                     />
                   </div>
@@ -1308,7 +1328,7 @@ export default function Pharmacy() {
                     <Label htmlFor="bank-name">Financial Institution (Bank Name)</Label>
                     <Input 
                       id="bank-name" 
-                      value={pharmacySettings.bankName}
+                      value={pharmacySettings?.bankName || ''}
                       onChange={(e) => setPharmacySettings({ ...pharmacySettings, bankName: e.target.value })}
                     />
                   </div>
@@ -1316,7 +1336,7 @@ export default function Pharmacy() {
                     <Label htmlFor="bank-branch">Branch Location</Label>
                     <Input 
                       id="bank-branch" 
-                      value={pharmacySettings.bankBranch}
+                      value={pharmacySettings?.bankBranch || ''}
                       onChange={(e) => setPharmacySettings({ ...pharmacySettings, bankBranch: e.target.value })}
                     />
                   </div>
@@ -1324,7 +1344,7 @@ export default function Pharmacy() {
                     <Label htmlFor="bank-acc">Deposit Account Number</Label>
                     <Input 
                       id="bank-acc" 
-                      value={pharmacySettings.bankAccNo}
+                      value={pharmacySettings?.bankAccNo || ''}
                       onChange={(e) => setPharmacySettings({ ...pharmacySettings, bankAccNo: e.target.value })}
                     />
                   </div>
@@ -1332,7 +1352,7 @@ export default function Pharmacy() {
                     <Label htmlFor="bank-ifsc">Routing Code (IFSC)</Label>
                     <Input 
                       id="bank-ifsc" 
-                      value={pharmacySettings.bankIfsc}
+                      value={pharmacySettings?.bankIfsc || ''}
                       onChange={(e) => setPharmacySettings({ ...pharmacySettings, bankIfsc: e.target.value })}
                       className="font-mono uppercase"
                     />
@@ -1341,7 +1361,7 @@ export default function Pharmacy() {
                     <Label htmlFor="upi-id">UPI Virtual Address (UPI ID)</Label>
                     <Input 
                       id="upi-id" 
-                      value={pharmacySettings.upiId}
+                      value={pharmacySettings?.upiId || ''}
                       onChange={(e) => setPharmacySettings({ ...pharmacySettings, upiId: e.target.value })}
                       placeholder="e.g. name@bank"
                       className="font-mono"
@@ -1362,7 +1382,13 @@ export default function Pharmacy() {
                   <textarea 
                     id="terms-conditions" 
                     className="w-full h-32 border border-slate-200 rounded-md p-3 text-xs focus:ring-1 focus:ring-medical-blue focus:outline-none"
-                    value={pharmacySettings.termsAndConditions.join('\n')}
+                    value={
+                      Array.isArray(pharmacySettings?.termsAndConditions)
+                        ? pharmacySettings.termsAndConditions.join('\n')
+                        : (typeof pharmacySettings?.termsAndConditions === 'string'
+                            ? pharmacySettings.termsAndConditions
+                            : (DEFAULT_PHARMACY_SETTINGS.termsAndConditions || []).join('\n'))
+                    }
                     onChange={(e) => {
                       const list = e.target.value.split('\n').filter(line => line.trim() !== '');
                       setPharmacySettings({ ...pharmacySettings, termsAndConditions: list });
@@ -1374,7 +1400,7 @@ export default function Pharmacy() {
                   <textarea 
                     id="invoice-footer" 
                     className="w-full h-32 border border-slate-200 rounded-md p-3 text-xs focus:ring-1 focus:ring-medical-blue focus:outline-none"
-                    value={pharmacySettings.additionalFooter}
+                    value={pharmacySettings?.additionalFooter || ''}
                     onChange={(e) => setPharmacySettings({ ...pharmacySettings, additionalFooter: e.target.value })}
                     placeholder="e.g. Thanks for your order!"
                   />

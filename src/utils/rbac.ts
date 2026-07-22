@@ -108,7 +108,7 @@ export const hasMenuAccess = (path: string, userRole: string | undefined | null)
       return ['DOCTOR', 'RECEPTIONIST', 'NURSE'].includes(norm);
     case '/pharmacy':
     case '/pharmacy/pos':
-      return ['PHARMACIST', 'ACCOUNTANT'].includes(norm);
+      return ['PHARMACIST', 'ACCOUNTANT', 'DOCTOR', 'RECEPTIONIST', 'NURSE'].includes(norm);
     case '/billing':
       return ['ACCOUNTANT'].includes(norm);
     case '/expenses':
