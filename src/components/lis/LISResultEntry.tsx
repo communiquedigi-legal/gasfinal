@@ -146,8 +146,8 @@ export default function LISResultEntry({ onRelease, readOnly }: { onRelease?: ()
           }
 
           // Prepare default results structure based on code or database values
-          const patientGenderObj = o.patients?.gender || 'Male';
-          const patientGenderFormatted = patientGenderObj.charAt(0).toUpperCase() + patientGenderObj.slice(1).toLowerCase();
+          const patientGenderObj = String(o.patients?.gender || 'Male');
+          const patientGenderFormatted = patientGenderObj.charAt(0).toUpperCase() + (patientGenderObj.slice(1) || '').toLowerCase();
           const patientAgeNum = o.patients?.age || 35;
 
           // Look up parameters for this investigation
@@ -180,7 +180,7 @@ export default function LISResultEntry({ onRelease, readOnly }: { onRelease?: ()
             patientId: o.patient_id,
             patientName: o.patients?.name || 'Unknown Patient',
             patientAge: patientAgeNum,
-            patientGender: patientGenderFormatted,
+            patientGender: (patientGenderFormatted === 'Female' ? 'Female' : patientGenderFormatted === 'Other' ? 'Other' : 'Male') as 'Male' | 'Female' | 'Other',
             patientMRN: o.patients?.mrn || 'MRN-NEW',
             testCode,
             testName: o.test_name,
@@ -242,8 +242,8 @@ export default function LISResultEntry({ onRelease, readOnly }: { onRelease?: ()
         status: 'Ordered',
         requested_at: new Date().toISOString(),
         sample_id: `SMP-${cleanMrnNoPrefix || Math.floor(10000 + Math.random() * 90000)}`,
-        reference_range: newOrder.testName.toLowerCase().includes('cbc') ? '12.0 - 15.0 g/dL' : 'Direct Obs',
-        unit: newOrder.testName.toLowerCase().includes('cbc') ? 'g/dL' : ''
+        reference_range: (newOrder.testName || '').toLowerCase().includes('cbc') ? '12.0 - 15.0 g/dL' : 'Direct Obs',
+        unit: (newOrder.testName || '').toLowerCase().includes('cbc') ? 'g/dL' : ''
       };
 
       const result = await supabaseService.createLabTestRequest(newOrderData);
@@ -617,12 +617,12 @@ export default function LISResultEntry({ onRelease, readOnly }: { onRelease?: ()
   };
 
   const filteredRecords = lisRecords.filter(r => {
-    const searchLow = searchQuery.toLowerCase();
+    const searchLow = (searchQuery || '').toLowerCase();
     const queryMatch = 
-      r.patientName.toLowerCase().includes(searchLow) ||
-      r.id.toLowerCase().includes(searchLow) ||
-      r.sampleId.toLowerCase().includes(searchLow) ||
-      r.patientMRN.toLowerCase().includes(searchLow);
+      (r.patientName || '').toLowerCase().includes(searchLow) ||
+      String(r.id || '').toLowerCase().includes(searchLow) ||
+      String(r.sampleId || '').toLowerCase().includes(searchLow) ||
+      String(r.patientMRN || '').toLowerCase().includes(searchLow);
     
     if (filterStatus === 'All') return queryMatch;
     return queryMatch && r.collectionStatus === filterStatus;
@@ -1004,14 +1004,14 @@ export default function LISResultEntry({ onRelease, readOnly }: { onRelease?: ()
               {showPatientResults && patientSearchTerm.length > 0 && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-[180px] overflow-y-auto custom-scrollbar">
                   {patients.filter(p => 
-                    p.name.toLowerCase().includes(patientSearchTerm.toLowerCase()) || 
+                    (p.name || '').toLowerCase().includes((patientSearchTerm || '').toLowerCase()) || 
                     (p.phone || '').includes(patientSearchTerm) ||
-                    (p.mrn || '').toLowerCase().includes(patientSearchTerm.toLowerCase())
+                    (p.mrn || '').toLowerCase().includes((patientSearchTerm || '').toLowerCase())
                   ).length > 0 ? (
                     patients.filter(p => 
-                      p.name.toLowerCase().includes(patientSearchTerm.toLowerCase()) || 
+                      (p.name || '').toLowerCase().includes((patientSearchTerm || '').toLowerCase()) || 
                       (p.phone || '').includes(patientSearchTerm) ||
-                      (p.mrn || '').toLowerCase().includes(patientSearchTerm.toLowerCase())
+                      (p.mrn || '').toLowerCase().includes((patientSearchTerm || '').toLowerCase())
                     ).map(p => (
                       <div 
                         key={p.id} 

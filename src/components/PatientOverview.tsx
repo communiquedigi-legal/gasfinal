@@ -605,14 +605,10 @@ View full details at: ${shareUrl}
     const latestVitals = vitals && vitals.length > 0 ? vitals[0] : undefined;
 
     // Use vitals stored on the prescription first, otherwise fall back to latestVitals
-    const prescriptionVitals = prescriptionData?.vitals || (latestVitals ? {
-      bp: latestVitals.bp,
-      pulse: latestVitals.pulse,
-      temp: latestVitals.temp,
-      spo2: latestVitals.spo2,
-      weight: latestVitals.weight,
-      rr: latestVitals.rr || latestVitals.respiration
-    } : undefined);
+    const prescriptionVitals = {
+      ...(latestVitals || {}),
+      ...(prescriptionData?.vitals || {})
+    };
 
     const html = getPrescriptionPrintHtml(
       {

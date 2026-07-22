@@ -1218,38 +1218,11 @@ export default function OPD() {
     const doctor = users.find(u => u.name === prescription.doctor);
     const latestVitals = selectedPatientVitals && selectedPatientVitals.length > 0 ? selectedPatientVitals[0] : undefined;
 
-    // Use edited vitals if present, otherwise fall back to latestVitals from history
-    const activeVitals = (prescription.vitals && (
-      prescription.vitals.bp ||
-      prescription.vitals.pulse ||
-      prescription.vitals.temp ||
-      prescription.vitals.spo2 ||
-      prescription.vitals.weight ||
-      prescription.vitals.rr ||
-      prescription.vitals.cbs ||
-      prescription.vitals.rs ||
-      prescription.vitals.cns
-    )) ? {
-      bp: prescription.vitals.bp,
-      pulse: prescription.vitals.pulse,
-      temp: prescription.vitals.temp,
-      spo2: prescription.vitals.spo2,
-      weight: prescription.vitals.weight,
-      rr: prescription.vitals.rr,
-      cbs: prescription.vitals.cbs,
-      rs: prescription.vitals.rs,
-      cns: prescription.vitals.cns
-    } : (latestVitals ? {
-      bp: latestVitals.bp,
-      pulse: latestVitals.pulse,
-      temp: latestVitals.temp,
-      spo2: latestVitals.spo2,
-      weight: latestVitals.weight,
-      rr: latestVitals.rr || latestVitals.respiration,
-      cbs: latestVitals.cbs,
-      rs: latestVitals.rs,
-      cns: latestVitals.cns
-    } : undefined);
+    // Combine latest recorded patient vitals and prescription-specific vitals
+    const activeVitals = {
+      ...(latestVitals || {}),
+      ...(prescription.vitals || {})
+    };
 
     const html = getPrescriptionPrintHtml(
       {
@@ -3150,17 +3123,10 @@ export default function OPD() {
         photos: unpacked.photos || [],
         attachmentUrl: unpacked.attachmentUrl || latestRx.attachment_url,
         attachmentName: unpacked.attachmentName || latestRx.attachment_name,
-        vitals: latestRx.vitals || (latestVitals ? {
-          bp: latestVitals.bp,
-          pulse: latestVitals.pulse,
-          temp: latestVitals.temp,
-          spo2: latestVitals.spo2,
-          weight: latestVitals.weight,
-          rr: latestVitals.rr || latestVitals.respiration,
-          cbs: latestVitals.cbs,
-          rs: latestVitals.rs,
-          cns: latestVitals.cns
-        } : undefined)
+        vitals: {
+          ...(latestVitals || {}),
+          ...(latestRx.vitals || {})
+        }
       },
       docObj,
       hospitalInfo
@@ -5537,17 +5503,10 @@ export default function OPD() {
                       photos: unpacked.photos || [],
                       attachmentUrl: unpacked.attachmentUrl || rx.attachment_url,
                       attachmentName: unpacked.attachmentName || rx.attachment_name,
-                      vitals: latestVitals ? {
-                        bp: latestVitals.bp,
-                        pulse: latestVitals.pulse,
-                        temp: latestVitals.temp,
-                        spo2: latestVitals.spo2,
-                        weight: latestVitals.weight,
-                        rr: latestVitals.rr || latestVitals.respiration,
-                        cbs: latestVitals.cbs,
-                        rs: latestVitals.rs,
-                        cns: latestVitals.cns
-                      } : undefined
+                      vitals: {
+                        ...(latestVitals || {}),
+                        ...(rx.vitals || {})
+                      }
                     },
                     docObj,
                     hospitalInfo
@@ -5710,17 +5669,10 @@ export default function OPD() {
                     photos: unpacked.photos || [],
                     attachmentUrl: unpacked.attachmentUrl || rx.attachment_url,
                     attachmentName: unpacked.attachmentName || rx.attachment_name,
-                    vitals: latestVitals ? {
-                      bp: latestVitals.bp,
-                      pulse: latestVitals.pulse,
-                      temp: latestVitals.temp,
-                      spo2: latestVitals.spo2,
-                      weight: latestVitals.weight,
-                      rr: latestVitals.rr || latestVitals.respiration,
-                      cbs: latestVitals.cbs,
-                      rs: latestVitals.rs,
-                      cns: latestVitals.cns
-                    } : undefined
+                    vitals: {
+                      ...(latestVitals || {}),
+                      ...(rx.vitals || {})
+                    }
                   },
                   docObj,
                   hospitalInfo

@@ -17,23 +17,48 @@ export interface PrintMedicine {
   duration?: string;
   time?: string;
   startTime?: string;
+  instructions?: string;
+  route?: string;
+  remarks?: string;
 }
 
 export interface PrintVitals {
   temp?: string | number;
+  temperature?: string | number;
   bp?: string;
+  blood_pressure?: string;
+  bloodPressure?: string;
+  bpSystolic?: string | number;
+  bpDiastolic?: string | number;
   pulse?: string | number;
+  pulse_rate?: string | number;
+  pulseRate?: string | number;
   spo2?: string | number;
   weight?: string | number;
   height?: string | number;
   bmi?: string | number;
   rr?: string | number;
+  respiration?: string | number;
+  respRate?: string | number;
   cbs?: string;
   rs?: string;
   cns?: string;
+  cvs?: string;
+  pa?: string;
+  pr?: string;
   rbs?: string;
   grbs?: string;
   sugar?: string;
+  blood_sugar?: string;
+  gcs?: string;
+  gcsTotal?: string;
+  painScale?: string;
+  pallor?: string;
+  icterus?: string;
+  edema?: string;
+  clubbing?: string;
+  cyanosis?: string;
+  lymphadenopathy?: string;
 }
 
 export interface PrintPrescription {
@@ -52,6 +77,8 @@ export interface PrintPrescription {
   vitals?: PrintVitals;
   findings?: string;
   suggestions?: string;
+  investigationsAdvised?: string | string[];
+  followUpDate?: string;
 }
 
 export interface PrintDoctor {
@@ -100,7 +127,7 @@ export function getPrescriptionPrintHtml(
   let drawImg = prescription.drawing || '';
   let diag = prescription.diagnosis || '';
   let photoList: string[] = prescription.photos ? [...prescription.photos] : [];
-  let vts = prescription?.vitals;
+  let vts: any = prescription?.vitals;
 
   if (prescription.attachmentUrl && prescription.attachmentUrl.startsWith('data:image')) {
     if (!photoList.includes(prescription.attachmentUrl)) {
@@ -135,19 +162,34 @@ export function getPrescriptionPrintHtml(
     }
   }
 
-  // Extract vitals
-  const bpVal = vts?.bp || '';
-  const pulseVal = vts?.pulse !== undefined && vts?.pulse !== 0 ? String(vts.pulse) : '';
-  const tempVal = vts?.temp !== undefined ? String(vts.temp) : '';
-  const spo2Val = vts?.spo2 !== undefined && vts?.spo2 !== 0 ? String(vts.spo2) : '';
-  const weightVal = vts?.weight !== undefined ? String(vts.weight) : '';
-  const heightVal = vts?.height !== undefined ? String(vts.height) : '';
-  const bmiVal = vts?.bmi !== undefined ? String(vts.bmi) : '';
-  const rrVal = vts?.rr !== undefined && vts?.rr !== 0 ? String(vts.rr) : '';
+  // Extract comprehensive vitals
+  const bpVal = vts?.bp || (vts?.bpSystolic && vts?.bpDiastolic ? `${vts.bpSystolic}/${vts.bpDiastolic}` : vts?.blood_pressure || vts?.bloodPressure || '');
+  const pulseVal = vts?.pulse !== undefined && vts?.pulse !== 0 && vts?.pulse !== '0' ? String(vts.pulse) : (vts?.pulse_rate || vts?.pulseRate ? String(vts.pulse_rate || vts.pulseRate) : '');
+  const tempVal = vts?.temp !== undefined && vts?.temp !== '' ? String(vts.temp) : (vts?.temperature !== undefined && vts?.temperature !== '' ? String(vts.temperature) : '');
+  const spo2Val = vts?.spo2 !== undefined && vts?.spo2 !== 0 && vts?.spo2 !== '0' ? String(vts.spo2) : '';
+  const weightVal = vts?.weight !== undefined && vts?.weight !== '' ? String(vts.weight) : '';
+  const heightVal = vts?.height !== undefined && vts?.height !== '' ? String(vts.height) : '';
+  const bmiVal = vts?.bmi !== undefined && vts?.bmi !== '' ? String(vts.bmi) : '';
+  const rrVal = vts?.rr !== undefined && vts?.rr !== 0 && vts?.rr !== '0' ? String(vts.rr) : (vts?.respiration || vts?.respRate ? String(vts.respiration || vts.respRate) : '');
   const cbsVal = vts?.cbs || '';
   const rsVal = vts?.rs || '';
   const cnsVal = vts?.cns || '';
-  const rbsVal = vts?.rbs || vts?.grbs || vts?.sugar || '';
+  const cvsVal = vts?.cvs || '';
+  const paVal = vts?.pa || '';
+  const prVal = vts?.pr || '';
+  const rbsVal = vts?.rbs || vts?.grbs || vts?.sugar || vts?.blood_sugar || '';
+  const gcsVal = vts?.gcs || vts?.gcsTotal || '';
+  const painVal = vts?.painScale || '';
+
+  // General Exam
+  const genExamParts = [];
+  if (vts?.pallor) genExamParts.push(`Pallor: ${vts.pallor}`);
+  if (vts?.icterus) genExamParts.push(`Icterus: ${vts.icterus}`);
+  if (vts?.edema) genExamParts.push(`Edema: ${vts.edema}`);
+  if (vts?.clubbing) genExamParts.push(`Clubbing: ${vts.clubbing}`);
+  if (vts?.cyanosis) genExamParts.push(`Cyanosis: ${vts.cyanosis}`);
+  if (vts?.lymphadenopathy) genExamParts.push(`Lymphadenopathy: ${vts.lymphadenopathy}`);
+  const genExamStr = genExamParts.join(' | ');
 
   const docName = doctor?.name || 'Attending Doctor';
   const docReg = doctor?.degree ? `Reg No: MC-${doctor.id?.toUpperCase() || '1234567'}` : 'Reg No: MC1234567';
@@ -156,22 +198,37 @@ export function getPrescriptionPrintHtml(
   // Format Medicines content
   let medContent = '';
   if (prescription.medicines && prescription.medicines.length > 0) {
-    medContent = prescription.medicines.map(m => `
-      <tr style="border-bottom: 1.5px solid #e2e8f0; page-break-inside: avoid;">
-        <td style="padding: 12px 14px; font-weight: 700; color: #0f172a; font-size: 13.5px;">${m.name}</td>
-        <td style="padding: 12px 14px; font-weight: 600; color: #334155; font-size: 13.5px;">${m.dosage || '-'}</td>
-        <td style="padding: 12px 14px; font-weight: 600; color: #334155; font-size: 13.5px;">${m.frequency || '-'}</td>
-        <td style="padding: 12px 14px; font-weight: 600; color: #334155; font-size: 13.5px;">${m.duration || '-'}</td>
-      </tr>
-    `).join('');
+    medContent = prescription.medicines.map((m, idx) => {
+      const nameStr = m.name || 'Medicine';
+      const dosageStr = m.dosage || '-';
+      const freqStr = m.frequency || '-';
+      const durStr = m.duration || '-';
+      const instStr = m.instructions || m.time || m.remarks || m.startTime || '';
+      return `
+        <tr style="border-bottom: 1.5px solid #e2e8f0; page-break-inside: avoid;">
+          <td style="padding: 10px 12px; font-weight: 700; color: #0f172a; font-size: 13px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="color: #64748b; font-size: 11px; font-weight: 600;">${idx + 1}.</span>
+              <span>${nameStr}</span>
+            </div>
+            ${m.route ? `<span style="display: inline-block; background-color: #f1f5f9; color: #475569; font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 4px; margin-top: 2px;">${m.route}</span>` : ''}
+          </td>
+          <td style="padding: 10px 12px; font-weight: 600; color: #334155; font-size: 13px;">${dosageStr}</td>
+          <td style="padding: 10px 12px; font-weight: 600; color: #334155; font-size: 13px;">${freqStr}</td>
+          <td style="padding: 10px 12px; font-weight: 600; color: #334155; font-size: 13px;">${durStr}</td>
+          <td style="padding: 10px 12px; font-weight: 600; color: #1e3a8a; font-size: 12px;">${instStr || '-'}</td>
+        </tr>
+      `;
+    }).join('');
   } else {
     for (let i = 0; i < 4; i++) {
       medContent += `
-        <tr style="border-bottom: 1px dotted #cbd5e1; height: 44px; page-break-inside: avoid;">
-          <td style="padding: 12px 14px;"></td>
-          <td style="padding: 12px 14px;"></td>
-          <td style="padding: 12px 14px;"></td>
-          <td style="padding: 12px 14px;"></td>
+        <tr style="border-bottom: 1px dotted #cbd5e1; height: 40px; page-break-inside: avoid;">
+          <td style="padding: 10px 12px;"></td>
+          <td style="padding: 10px 12px;"></td>
+          <td style="padding: 10px 12px;"></td>
+          <td style="padding: 10px 12px;"></td>
+          <td style="padding: 10px 12px;"></td>
         </tr>
       `;
     }
@@ -223,6 +280,29 @@ export function getPrescriptionPrintHtml(
       <div style="margin-top: 14px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
         <div style="font-weight: 800; font-size: 10.5px; text-transform: uppercase; color: #059669; letter-spacing: 0.06em; margin-bottom: 4px;">💡 Clinical Remarks, Suggestions & Advice:</div>
         <div style="font-size: 12.5px; color: #064e3b; font-weight: 600; line-height: 1.5; background: #ecfdf5; border: 1.5px solid #d1fae5; border-radius: 6px; padding: 8px 12px; border-left: 4px solid #059669; white-space: pre-wrap;">${advText}</div>
+      </div>
+    `;
+  }
+
+  if (prescription.investigationsAdvised) {
+    const invStr = Array.isArray(prescription.investigationsAdvised) 
+      ? prescription.investigationsAdvised.join(', ') 
+      : String(prescription.investigationsAdvised);
+    if (invStr.trim()) {
+      additionalSections += `
+        <div style="margin-top: 14px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
+          <div style="font-weight: 800; font-size: 10.5px; text-transform: uppercase; color: #4338ca; letter-spacing: 0.06em; margin-bottom: 4px;">🧪 Investigations / Lab & Radiology Advised:</div>
+          <div style="font-size: 12.5px; color: #312e81; font-weight: 700; line-height: 1.5; background: #eef2ff; border: 1.5px solid #c7d2fe; border-radius: 6px; padding: 8px 12px; border-left: 4px solid #4338ca;">${invStr}</div>
+        </div>
+      `;
+    }
+  }
+
+  if (prescription.followUpDate) {
+    additionalSections += `
+      <div style="margin-top: 14px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
+        <div style="font-weight: 800; font-size: 10.5px; text-transform: uppercase; color: #047857; letter-spacing: 0.06em; margin-bottom: 4px;">📅 Follow-up / Next Visit Date:</div>
+        <div style="font-size: 13px; color: #065f46; font-weight: 800; line-height: 1.5; background: #ecfdf5; border: 1.5px solid #a7f3d0; border-radius: 6px; padding: 8px 12px; border-left: 4px solid #047857; display: inline-block;">${prescription.followUpDate}</div>
       </div>
     `;
   }
@@ -510,19 +590,25 @@ export function getPrescriptionPrintHtml(
             <!-- Comprehensive Vitals / On Examination (O/E) Box -->
             <div style="display: flex; gap: 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 8px 12px; margin-bottom: 16px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 11.5px; font-weight: 700; color: #334155; background-color: #f8fafc; align-items: center; page-break-inside: avoid;">
               <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #1e3a8a; letter-spacing: 0.05em; border-right: 1.5px solid #cbd5e1; padding-right: 10px; margin-right: 4px; white-space: nowrap;">Vitals / O/E</span>
-              <div style="flex: 1; display: flex; justify-content: flex-start; flex-wrap: wrap; gap: 10px 18px; align-items: center;">
-                <div>BP: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 55px; display: inline-block; text-align: center; padding-bottom: 1px;">${bpVal || '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</span> mmHg</div>
-                <div>Pulse: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 40px; display: inline-block; text-align: center; padding-bottom: 1px;">${pulseVal || '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</span> /min</div>
-                <div>Temp: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 40px; display: inline-block; text-align: center; padding-bottom: 1px;">${tempVal || '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</span> °F</div>
-                <div>SpO2: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 40px; display: inline-block; text-align: center; padding-bottom: 1px;">${spo2Val || '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</span> %</div>
-                <div>Weight: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 40px; display: inline-block; text-align: center; padding-bottom: 1px;">${weightVal || '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</span> kg</div>
-                ${heightVal ? `<div>Height: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 40px; display: inline-block; text-align: center; padding-bottom: 1px;">${heightVal}</span> cm</div>` : ''}
-                ${bmiVal ? `<div>BMI: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 40px; display: inline-block; text-align: center; padding-bottom: 1px;">${bmiVal}</span></div>` : ''}
-                <div>Resp Rate: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 40px; display: inline-block; text-align: center; padding-bottom: 1px;">${rrVal || '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</span> /min</div>
-                ${cbsVal ? `<div>CBS: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 40px; display: inline-block; text-align: center; padding-bottom: 1px;">${cbsVal}</span></div>` : ''}
-                ${rsVal ? `<div>RS: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 40px; display: inline-block; text-align: center; padding-bottom: 1px;">${rsVal}</span></div>` : ''}
-                ${cnsVal ? `<div>CNS: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 40px; display: inline-block; text-align: center; padding-bottom: 1px;">${cnsVal}</span></div>` : ''}
+              <div style="flex: 1; display: flex; justify-content: flex-start; flex-wrap: wrap; gap: 8px 16px; align-items: center;">
+                <div>BP: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 50px; display: inline-block; text-align: center; padding-bottom: 1px;">${bpVal || '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</span> mmHg</div>
+                <div>Pulse: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 35px; display: inline-block; text-align: center; padding-bottom: 1px;">${pulseVal || '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</span> /min</div>
+                <div>Temp: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 35px; display: inline-block; text-align: center; padding-bottom: 1px;">${tempVal || '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</span> °F</div>
+                <div>SpO2: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 35px; display: inline-block; text-align: center; padding-bottom: 1px;">${spo2Val || '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</span> %</div>
+                <div>Weight: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 35px; display: inline-block; text-align: center; padding-bottom: 1px;">${weightVal || '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</span> kg</div>
+                ${heightVal ? `<div>Height: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 35px; display: inline-block; text-align: center; padding-bottom: 1px;">${heightVal}</span> cm</div>` : ''}
+                ${bmiVal ? `<div>BMI: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 35px; display: inline-block; text-align: center; padding-bottom: 1px;">${bmiVal}</span></div>` : ''}
+                <div>Resp Rate: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 35px; display: inline-block; text-align: center; padding-bottom: 1px;">${rrVal || '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</span> /min</div>
                 ${rbsVal ? `<div>RBS/GRBS: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 40px; display: inline-block; text-align: center; padding-bottom: 1px;">${rbsVal}</span> mg/dL</div>` : ''}
+                ${cbsVal ? `<div>CBS: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 35px; display: inline-block; text-align: center; padding-bottom: 1px;">${cbsVal}</span></div>` : ''}
+                ${rsVal ? `<div>RS: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 35px; display: inline-block; text-align: center; padding-bottom: 1px;">${rsVal}</span></div>` : ''}
+                ${cvsVal ? `<div>CVS: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 35px; display: inline-block; text-align: center; padding-bottom: 1px;">${cvsVal}</span></div>` : ''}
+                ${cnsVal ? `<div>CNS: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 35px; display: inline-block; text-align: center; padding-bottom: 1px;">${cnsVal}</span></div>` : ''}
+                ${paVal ? `<div>P/A: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 35px; display: inline-block; text-align: center; padding-bottom: 1px;">${paVal}</span></div>` : ''}
+                ${prVal ? `<div>P/R: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 35px; display: inline-block; text-align: center; padding-bottom: 1px;">${prVal}</span></div>` : ''}
+                ${gcsVal ? `<div>GCS: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 35px; display: inline-block; text-align: center; padding-bottom: 1px;">${gcsVal}</span></div>` : ''}
+                ${painVal ? `<div>Pain Scale: <span style="font-weight: 800; color: #1d4ed8; border-bottom: 1px dotted #94a3b8; min-width: 35px; display: inline-block; text-align: center; padding-bottom: 1px;">${painVal}/10</span></div>` : ''}
+                ${genExamStr ? `<div style="width: 100%; font-size: 11px; color: #475569; font-style: italic; border-top: 1px dashed #cbd5e1; padding-top: 4px; margin-top: 2px;">General Exam: ${genExamStr}</div>` : ''}
               </div>
             </div>
             
@@ -533,10 +619,11 @@ export function getPrescriptionPrintHtml(
             <table class="meds-table">
               <thead>
                 <tr>
-                  <th style="width: 44%;">MEDICINE & STRENGTH</th>
-                  <th style="width: 18%;">DOSAGE</th>
-                  <th style="width: 22%;">FREQUENCY</th>
-                  <th style="width: 16%;">DURATION</th>
+                  <th style="width: 38%;">MEDICINE & STRENGTH</th>
+                  <th style="width: 15%;">DOSAGE</th>
+                  <th style="width: 18%;">FREQUENCY</th>
+                  <th style="width: 14%;">DURATION</th>
+                  <th style="width: 15%;">INSTRUCTION</th>
                 </tr>
               </thead>
               <tbody>

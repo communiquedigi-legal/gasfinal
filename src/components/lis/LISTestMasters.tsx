@@ -385,9 +385,9 @@ export default function LISTestMasters({ readOnly }: { readOnly?: boolean }) {
                 </TableHeader>
                 <TableBody>
                   {investigations.filter(t => 
-                    t.name.toLowerCase().includes(testSearch.toLowerCase()) ||
-                    t.code.toLowerCase().includes(testSearch.toLowerCase()) ||
-                    t.shortName.toLowerCase().includes(testSearch.toLowerCase())
+                    (t.name || '').toLowerCase().includes((testSearch || '').toLowerCase()) ||
+                    (t.code || '').toLowerCase().includes((testSearch || '').toLowerCase()) ||
+                    (t.shortName || '').toLowerCase().includes((testSearch || '').toLowerCase())
                   ).map((test) => (
                     <TableRow key={test.code} className="hover:bg-slate-50/50 text-xs border-slate-100">
                       <TableCell className="py-2.5">
@@ -534,8 +534,8 @@ export default function LISTestMasters({ readOnly }: { readOnly?: boolean }) {
                 </TableHeader>
                 <TableBody>
                   {parameters.filter(p => 
-                    p.name.toLowerCase().includes(paramSearch.toLowerCase()) || 
-                    p.testCode.toLowerCase().includes(paramSearch.toLowerCase())
+                    (p.name || '').toLowerCase().includes((paramSearch || '').toLowerCase()) || 
+                    (p.testCode || '').toLowerCase().includes((paramSearch || '').toLowerCase())
                   ).map((param) => {
                     const testRef = investigations.find(i => i.code === param.testCode);
                     return (
@@ -631,8 +631,8 @@ export default function LISTestMasters({ readOnly }: { readOnly?: boolean }) {
                 </TableHeader>
                 <TableBody>
                   {categories.filter(c => 
-                    c.name.toLowerCase().includes(catSearch.toLowerCase()) || 
-                    c.id.toLowerCase().includes(catSearch.toLowerCase())
+                    (c.name || '').toLowerCase().includes((catSearch || '').toLowerCase()) || 
+                    String(c.id || '').toLowerCase().includes((catSearch || '').toLowerCase())
                   ).map((cat) => (
                     <TableRow key={cat.id} className="hover:bg-slate-50/50 text-xs border-slate-100">
                       <TableCell className="py-3 font-mono font-bold text-slate-600">{cat.id}</TableCell>
@@ -723,8 +723,8 @@ export default function LISTestMasters({ readOnly }: { readOnly?: boolean }) {
                 </TableHeader>
                 <TableBody>
                   {subCategories.filter(s => 
-                    s.name.toLowerCase().includes(subSearch.toLowerCase()) || 
-                    s.id.toLowerCase().includes(subSearch.toLowerCase())
+                    (s.name || '').toLowerCase().includes((subSearch || '').toLowerCase()) || 
+                    String(s.id || '').toLowerCase().includes((subSearch || '').toLowerCase())
                   ).map((sub) => {
                     const catRef = categories.find(c => c.id === sub.categoryId);
                     return (
