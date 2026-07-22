@@ -27,7 +27,10 @@ import {
   Eraser,
   RotateCcw,
   BookOpen,
-  Save
+  Save,
+  Camera,
+  Image as ImageIcon,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -92,7 +95,10 @@ const deserializePrescriptionAdvice = (adviceField: string) => {
           pastHistory: data.pastHistory || '',
           drawing: data.drawing || '',
           diagnosis: data.diagnosis || '',
-          allergies: data.allergies || ''
+          allergies: data.allergies || '',
+          photos: data.photos || (data.attachmentUrl && data.attachmentUrl.startsWith('data:image') ? [data.attachmentUrl] : []),
+          attachmentUrl: data.attachmentUrl || '',
+          attachmentName: data.attachmentName || ''
         };
       }
     }
@@ -105,18 +111,34 @@ const deserializePrescriptionAdvice = (adviceField: string) => {
     pastHistory: '',
     drawing: '',
     diagnosis: '',
-    allergies: ''
+    allergies: '',
+    photos: [],
+    attachmentUrl: '',
+    attachmentName: ''
   };
 };
 
-const serializePrescriptionAdvice = (adviceText: string, exam: string, past: string, drawing: string, diagnosis: string, allergies: string) => {
+const serializePrescriptionAdvice = (
+  adviceText: string,
+  exam: string,
+  past: string,
+  drawing: string,
+  diagnosis: string,
+  allergies: string,
+  photos?: string[],
+  attachmentUrl?: string,
+  attachmentName?: string
+) => {
   return JSON.stringify({
     advice: adviceText || '',
     examinationFindings: exam || '',
     pastHistory: past || '',
     drawing: drawing || '',
     diagnosis: diagnosis || '',
-    allergies: allergies || ''
+    allergies: allergies || '',
+    photos: photos || [],
+    attachmentUrl: attachmentUrl || '',
+    attachmentName: attachmentName || ''
   });
 };
 
@@ -516,6 +538,7 @@ export default function OPD() {
     pastHistory: '',
     allergies: '',
     drawing: '',
+    photos: [],
     attachmentUrl: '',
     attachmentName: '',
     vitals: {
@@ -849,27 +872,52 @@ export default function OPD() {
   }, []);
 
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.type !== 'application/pdf') {
-        toast.error('Please upload a PDF file');
-        return;
-      }
-      if (file.size > 2 * 1024 * 1024) {
-        toast.error('File size exceeds the 2MB limit. Please compress your PDF before uploading.');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPrescription({
-          ...prescription,
-          attachmentUrl: reader.result as string,
-          attachmentName: file.name
-        });
-        toast.success('Prescription PDF uploaded');
-      };
-      reader.readAsDataURL(file);
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      Array.from(files).forEach((file: File) => {
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error(`File ${file.name} exceeds 5MB limit`);
+          return;
+        }
+        if (file.type === 'application/pdf') {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setPrescription((prev: any) => ({
+              ...prev,
+              attachmentUrl: reader.result as string,
+              attachmentName: file.name
+            }));
+            toast.success('PDF document attached');
+          };
+          reader.readAsDataURL(file);
+        } else if (file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const dataUrl = reader.result as string;
+            setPrescription((prev: any) => {
+              const currentPhotos = prev.photos || [];
+              if (currentPhotos.includes(dataUrl)) return prev;
+              return {
+                ...prev,
+                photos: [...currentPhotos, dataUrl]
+              };
+            });
+            toast.success(`Clinical photo attached: ${file.name}`);
+          };
+          reader.readAsDataURL(file);
+        } else {
+          toast.error('Please upload an image file (JPG, PNG, WEBP) or a PDF.');
+        }
+      });
     }
+  };
+
+  const removePhoto = (index: number) => {
+    setPrescription((prev: any) => ({
+      ...prev,
+      photos: (prev.photos || []).filter((_: any, i: number) => i !== index)
+    }));
+    toast.info('Photo removed');
   };
 
   const addMedicine = () => {
@@ -943,7 +991,10 @@ export default function OPD() {
       prescription.pastHistory,
       prescription.drawing,
       prescription.diagnosis,
-      prescription.allergies || ''
+      prescription.allergies || '',
+      prescription.photos || [],
+      prescription.attachmentUrl || '',
+      prescription.attachmentName || ''
     );
 
     const newPrescriptionData = {
@@ -1014,6 +1065,7 @@ export default function OPD() {
         pastHistory: '',
         allergies: '',
         drawing: '',
+        photos: [],
         attachmentUrl: '',
         attachmentName: '',
         vitals: {
@@ -1214,8 +1266,12 @@ export default function OPD() {
         advice: prescription.advice,
         examinationFindings: prescription.examinationFindings,
         pastHistory: prescription.pastHistory,
+        allergies: prescription.allergies,
         drawing: prescription.drawing,
         diagnosis: prescription.diagnosis,
+        photos: prescription.photos || [],
+        attachmentUrl: prescription.attachmentUrl,
+        attachmentName: prescription.attachmentName,
         vitals: activeVitals
       },
       doctor,
@@ -3088,8 +3144,12 @@ export default function OPD() {
         advice: unpacked.advice,
         examinationFindings: unpacked.examinationFindings,
         pastHistory: unpacked.pastHistory,
+        allergies: unpacked.allergies,
         drawing: unpacked.drawing,
         diagnosis: unpacked.diagnosis,
+        photos: unpacked.photos || [],
+        attachmentUrl: unpacked.attachmentUrl || latestRx.attachment_url,
+        attachmentName: unpacked.attachmentName || latestRx.attachment_name,
         vitals: latestRx.vitals || (latestVitals ? {
           bp: latestVitals.bp,
           pulse: latestVitals.pulse,
@@ -5347,22 +5407,88 @@ export default function OPD() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Upload Written Prescription (PDF)</Label>
-                <div className="flex items-center gap-4">
-                  <Input 
-                    disabled={isReceptionist}
-                    type="file" 
-                    accept=".pdf"
-                    onChange={handleFileUpload}
-                    className="cursor-pointer"
-                  />
-                  {prescription.attachmentName && (
-                    <Badge variant="outline" className="text-emerald-600 border-emerald-200">
-                      {prescription.attachmentName}
+              {/* Clinical Photos & Attachments Section */}
+              <div className="space-y-3 bg-blue-50/40 border border-blue-200/80 rounded-xl p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-xs uppercase text-blue-900 tracking-wider">Clinical Photos & Attachments</span>
+                    <Badge variant="outline" className="text-[10px] text-blue-700 bg-blue-100/50 border-blue-200 font-bold uppercase py-0 px-1.5 h-4">
+                      Doctor Attachments
                     </Badge>
+                  </div>
+                  {prescription.photos && prescription.photos.length > 0 && (
+                    <span className="text-xs font-semibold text-blue-700">{prescription.photos.length} Photo{prescription.photos.length > 1 ? 's' : ''} attached</span>
                   )}
                 </div>
+
+                <p className="text-[11px] text-slate-600">
+                  Upload clinical photos (lesions, X-rays, photos of handwritten notes, etc.) or PDF documents. Added photos will be embedded directly in the printed prescription format.
+                </p>
+
+                {!isReceptionist && (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors">
+                      <Camera className="w-4 h-4" />
+                      Add Clinical Photos
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        multiple 
+                        onChange={handleFileUpload} 
+                        className="hidden" 
+                      />
+                    </label>
+
+                    <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 transition-colors">
+                      <FileText className="w-4 h-4 text-slate-500" />
+                      Attach PDF
+                      <input 
+                        type="file" 
+                        accept=".pdf" 
+                        onChange={handleFileUpload} 
+                        className="hidden" 
+                      />
+                    </label>
+
+                    {prescription.attachmentName && (
+                      <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-200 flex items-center gap-1.5 py-1 px-2.5">
+                        <FileText className="w-3.5 h-3.5" />
+                        {prescription.attachmentName}
+                        <button
+                          type="button"
+                          onClick={() => setPrescription({ ...prescription, attachmentUrl: '', attachmentName: '' })}
+                          className="hover:text-rose-600 ml-1"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    )}
+                  </div>
+                )}
+
+                {/* Uploaded Photos Gallery Preview */}
+                {prescription.photos && prescription.photos.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                    {prescription.photos.map((photo: string, idx: number) => (
+                      <div key={idx} className="relative group border border-blue-200 rounded-lg overflow-hidden bg-white shadow-sm flex flex-col items-center">
+                        <img src={photo} alt={`Clinical Photo ${idx + 1}`} className="w-full h-24 object-cover" />
+                        <div className="w-full bg-slate-50 text-[10px] font-bold text-slate-600 text-center py-0.5 border-t border-slate-100">
+                          Photo {idx + 1}
+                        </div>
+                        {!isReceptionist && (
+                          <button
+                            type="button"
+                            onClick={() => removePhoto(idx)}
+                            className="absolute top-1 right-1 bg-rose-600 text-white rounded-full p-1 opacity-90 hover:opacity-100 shadow hover:bg-rose-700 transition-opacity"
+                            title="Remove Photo"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -5405,8 +5531,12 @@ export default function OPD() {
                       advice: unpacked.advice,
                       examinationFindings: unpacked.examinationFindings,
                       pastHistory: unpacked.pastHistory,
+                      allergies: unpacked.allergies,
                       drawing: unpacked.drawing,
                       diagnosis: unpacked.diagnosis,
+                      photos: unpacked.photos || [],
+                      attachmentUrl: unpacked.attachmentUrl || rx.attachment_url,
+                      attachmentName: unpacked.attachmentName || rx.attachment_name,
                       vitals: latestVitals ? {
                         bp: latestVitals.bp,
                         pulse: latestVitals.pulse,
@@ -5574,8 +5704,12 @@ export default function OPD() {
                     advice: unpacked.advice,
                     examinationFindings: unpacked.examinationFindings,
                     pastHistory: unpacked.pastHistory,
+                    allergies: unpacked.allergies,
                     drawing: unpacked.drawing,
                     diagnosis: unpacked.diagnosis,
+                    photos: unpacked.photos || [],
+                    attachmentUrl: unpacked.attachmentUrl || rx.attachment_url,
+                    attachmentName: unpacked.attachmentName || rx.attachment_name,
                     vitals: latestVitals ? {
                       bp: latestVitals.bp,
                       pulse: latestVitals.pulse,

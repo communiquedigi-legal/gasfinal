@@ -36,7 +36,11 @@ export interface PrintPrescription {
   notes?: string;
   examinationFindings?: string;
   pastHistory?: string;
+  allergies?: string;
   drawing?: string;
+  photos?: string[];
+  attachmentUrl?: string;
+  attachmentName?: string;
   vitals?: PrintVitals;
   findings?: string;
   suggestions?: string;
@@ -128,6 +132,13 @@ export function getPrescriptionPrintHtml(
   let allergiesText = (prescription as any).allergies || '';
   let drawImg = prescription.drawing || '';
   let diag = prescription.diagnosis || '';
+  let photoList: string[] = prescription.photos ? [...prescription.photos] : [];
+
+  if (prescription.attachmentUrl && prescription.attachmentUrl.startsWith('data:image')) {
+    if (!photoList.includes(prescription.attachmentUrl)) {
+      photoList.push(prescription.attachmentUrl);
+    }
+  }
 
   // Try deserializing advice if it's stored as JSON
   if (typeof advText === 'string' && advText.trim().startsWith('{')) {
@@ -141,13 +152,21 @@ export function getPrescriptionPrintHtml(
         if (parsed.allergies) allergiesText = parsed.allergies;
         if (parsed.drawing) drawImg = parsed.drawing;
         if (parsed.diagnosis) diag = parsed.diagnosis;
+        if (parsed.photos && Array.isArray(parsed.photos)) {
+          parsed.photos.forEach((ph: string) => {
+            if (ph && !photoList.includes(ph)) photoList.push(ph);
+          });
+        }
+        if (parsed.attachmentUrl && parsed.attachmentUrl.startsWith('data:image')) {
+          if (!photoList.includes(parsed.attachmentUrl)) photoList.push(parsed.attachmentUrl);
+        }
       }
     } catch (e) {
       // Not JSON or parse failed
     }
   }
 
-  // Format Diagnosis, Past History, Examination Findings, Advice, and Drawing content
+  // Format Diagnosis, Past History, Examination Findings, Advice, Drawing, and Doctor Photos content
   let additionalSections = '';
 
   if (diag) {
@@ -157,15 +176,6 @@ export function getPrescriptionPrintHtml(
         <div style="font-size: 13.5px; color: #0f172a; font-weight: 700; line-height: 1.5; background: #fef2f2; border: 1.5px solid #fee2e2; border-radius: 8px; padding: 10px 14px; border-left: 4px solid #dc2626;">
           ${diag}
         </div>
-      </div>
-    `;
-  }
-
-  if (examFindings) {
-    additionalSections += `
-      <div style="margin-top: 15px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
-        <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: #0284c7; letter-spacing: 0.08em; margin-bottom: 6px;">Examination Findings & Clinical Findings:</div>
-        <div style="font-size: 13px; color: #1e293b; font-weight: 500; line-height: 1.5; background: #f0f9ff; border: 1.5px solid #e0f2fe; border-radius: 8px; padding: 10px 14px; border-left: 4px solid #0284c7; white-space: pre-wrap;">${examFindings}</div>
       </div>
     `;
   }
@@ -188,6 +198,15 @@ export function getPrescriptionPrintHtml(
     `;
   }
 
+  if (examFindings) {
+    additionalSections += `
+      <div style="margin-top: 15px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
+        <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: #0284c7; letter-spacing: 0.08em; margin-bottom: 6px;">Examination Findings & Clinical Findings:</div>
+        <div style="font-size: 13px; color: #1e293b; font-weight: 500; line-height: 1.5; background: #f0f9ff; border: 1.5px solid #e0f2fe; border-radius: 8px; padding: 10px 14px; border-left: 4px solid #0284c7; white-space: pre-wrap;">${examFindings}</div>
+      </div>
+    `;
+  }
+
   if (advText) {
     additionalSections += `
       <div style="margin-top: 15px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
@@ -203,6 +222,22 @@ export function getPrescriptionPrintHtml(
         <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: #7c3aed; letter-spacing: 0.08em; margin-bottom: 6px;">Clinical Findings Diagram:</div>
         <div style="background: #fff; border: 1.5px solid #e9d5ff; border-radius: 8px; padding: 8px; text-align: center; border-left: 4px solid #7c3aed; display: inline-block;">
           <img src="${drawImg}" style="max-height: 250px; display: block; margin: 0 auto; object-fit: contain;" />
+        </div>
+      </div>
+    `;
+  }
+
+  if (photoList && photoList.length > 0) {
+    additionalSections += `
+      <div style="margin-top: 15px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
+        <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: #2563eb; letter-spacing: 0.08em; margin-bottom: 6px;">Clinical Photos Attached by Doctor:</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 10px; border-left: 4px solid #2563eb;">
+          ${photoList.map((ph, idx) => `
+            <div style="border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); text-align: center;">
+              <img src="${ph}" style="max-height: 200px; max-width: 250px; display: block; object-fit: contain; margin: 0 auto; padding: 4px;" alt="Clinical Photo ${idx + 1}" />
+              <div style="font-size: 9.5px; font-weight: 700; color: #475569; background: #f1f5f9; padding: 3px 6px; border-top: 1px solid #e2e8f0;">Clinical Photo ${idx + 1}</div>
+            </div>
+          `).join('')}
         </div>
       </div>
     `;
