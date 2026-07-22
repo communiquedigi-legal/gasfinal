@@ -421,11 +421,11 @@ export default function PharmacyPOS() {
 
   const filteredInventory = inventory.filter((item: any) => {
     const matchesSearch = 
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.rack_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.batch_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.composition || '').toLowerCase().includes(searchQuery.toLowerCase());
+      (item.name || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+      (item.category || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+      (item.rack_number || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+      (item.batch_number || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+      (item.composition || '').toLowerCase().includes((searchQuery || '').toLowerCase());
     
     if (filterLooseOnly) {
       return matchesSearch && item.is_loose_sale_enabled;
@@ -1117,9 +1117,9 @@ export default function PharmacyPOS() {
                       {selectedPatientId === 'walk-in' && <CheckCircle2 className="w-4 h-4 text-medical-blue" />}
                     </div>
                     {patients.filter((p: any) => 
-                      p.name.toLowerCase().includes(patientSearchTerm.toLowerCase()) || 
-                      (p.phone || '').includes(patientSearchTerm) ||
-                      (p.mrn || '').toLowerCase().includes(patientSearchTerm.toLowerCase())
+                      (p.name || '').toLowerCase().includes((patientSearchTerm || '').toLowerCase()) || 
+                      (p.phone || '').includes(patientSearchTerm || '') ||
+                      (p.mrn || '').toLowerCase().includes((patientSearchTerm || '').toLowerCase())
                     ).map((p: any) => (
                       <div 
                         key={p.id} 
@@ -1384,9 +1384,9 @@ export default function PharmacyPOS() {
                       {inventory
                         .filter((item: any) => 
                           item.is_loose_sale_enabled && (
-                            item.name.toLowerCase().includes(modalSearchQuery.toLowerCase()) ||
-                            (item.composition || '').toLowerCase().includes(modalSearchQuery.toLowerCase()) ||
-                            (item.category || '').toLowerCase().includes(modalSearchQuery.toLowerCase())
+                            (item.name || '').toLowerCase().includes((modalSearchQuery || '').toLowerCase()) ||
+                            (item.composition || '').toLowerCase().includes((modalSearchQuery || '').toLowerCase()) ||
+                            (item.category || '').toLowerCase().includes((modalSearchQuery || '').toLowerCase())
                           )
                         )
                         .map((item: any) => (
@@ -1413,9 +1413,9 @@ export default function PharmacyPOS() {
                       }
                       {inventory.filter((item: any) => 
                         item.is_loose_sale_enabled && (
-                          item.name.toLowerCase().includes(modalSearchQuery.toLowerCase()) ||
-                          (item.composition || '').toLowerCase().includes(modalSearchQuery.toLowerCase()) ||
-                          (item.category || '').toLowerCase().includes(modalSearchQuery.toLowerCase())
+                          (item.name || '').toLowerCase().includes((modalSearchQuery || '').toLowerCase()) ||
+                          (item.composition || '').toLowerCase().includes((modalSearchQuery || '').toLowerCase()) ||
+                          (item.category || '').toLowerCase().includes((modalSearchQuery || '').toLowerCase())
                         )
                       ).length === 0 && (
                         <div className="p-3 text-center text-xs font-bold text-slate-400">No loose medicines found</div>
@@ -1700,8 +1700,8 @@ export default function PharmacyPOS() {
                     p.medications?.forEach((med: any) => {
                       // Try to find the item in inventory
                       const invItem = inventory.find(i => 
-                        i.name.toLowerCase().includes(med.name.toLowerCase()) || 
-                        med.name.toLowerCase().includes(i.name.toLowerCase())
+                        (i.name || '').toLowerCase().includes((med.name || '').toLowerCase()) || 
+                        (med.name || '').toLowerCase().includes((i.name || '').toLowerCase())
                       );
                       
                       if (invItem && invItem.stock > 0) {
@@ -1843,7 +1843,7 @@ export default function PharmacyPOS() {
                 {customLooseItem.name && !customLooseItem.isSelected && (
                   <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl max-h-[180px] overflow-y-auto p-2 space-y-1">
                     {inventory
-                      .filter((item: any) => item.name.toLowerCase().includes(customLooseItem.name.toLowerCase()))
+                      .filter((item: any) => (item.name || '').toLowerCase().includes((customLooseItem.name || '').toLowerCase()))
                       .map((item: any) => {
                         const calculatedPrice = item.loose_selling_price || (item.selling_price / (item.units_per_strip || 10));
                         return (
@@ -1874,7 +1874,7 @@ export default function PharmacyPOS() {
                           </div>
                         );
                       })}
-                    {inventory.filter((item: any) => item.name.toLowerCase().includes(customLooseItem.name.toLowerCase())).length === 0 && (
+                    {inventory.filter((item: any) => (item.name || '').toLowerCase().includes((customLooseItem.name || '').toLowerCase())).length === 0 && (
                       <div className="p-2 text-center text-xs font-bold text-slate-400">Press enter or tab to use custom name</div>
                     )}
                   </div>

@@ -1072,12 +1072,16 @@ export default function Settings({ currentUser, onUserUpdate, onHospitalUpdate }
         gender: patient?.gender,
         mrn: patient?.mrn,
         phone: patient?.phone || (patient as any)?.mobile || '',
-        fatherName: (patient as any)?.fatherName || (patient as any)?.father_name || ''
+        fatherName: (patient as any)?.fatherName || (patient as any)?.father_name || '',
+        allergies: patient?.allergies || (patient as any)?.known_allergies || (patient as any)?.allergies_list,
+        pastHistory: patient?.pastHistory || (patient as any)?.medical_history || (patient as any)?.past_history || (patient as any)?.history,
+        medicalHistory: patient?.medicalHistory
       },
       {
         date: pres.date,
         medicines: pres.medicines,
-        advice: pres.notes || pres.diagnosis
+        advice: pres.notes || pres.diagnosis,
+        vitals: (patient as any)?.vitals || (pres as any)?.vitals
       },
       doctor,
       hospitalInfo

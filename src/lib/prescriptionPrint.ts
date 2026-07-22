@@ -5,9 +5,12 @@ export interface PrintPatient {
   mrn?: string;
   phone?: string;
   fatherName?: string;
-  allergies?: string;
+  allergies?: string | string[];
   pastHistory?: string;
   medicalHistory?: string;
+  clinicalHistory?: string;
+  history?: string;
+  complaints?: string;
 }
 
 export interface PrintMedicine {
@@ -69,7 +72,9 @@ export interface PrintPrescription {
   notes?: string;
   examinationFindings?: string;
   pastHistory?: string;
-  allergies?: string;
+  allergies?: string | string[];
+  complaints?: string;
+  chiefComplaints?: string;
   drawing?: string;
   photos?: string[];
   attachmentUrl?: string;
@@ -122,12 +127,28 @@ export function getPrescriptionPrintHtml(
   // Extract advice, examination, history, allergies, drawing, diagnosis, photos
   let advText = prescription.advice || prescription.suggestions || prescription.notes || '';
   let examFindings = prescription.examinationFindings || prescription.findings || '';
-  let pastHist = prescription.pastHistory || (patient as any)?.pastHistory || (patient as any)?.medicalHistory || (patient as any)?.medical_history || (patient as any)?.past_history || '';
-  let allergiesText = (prescription as any).allergies || (patient as any)?.allergies || (patient as any)?.known_allergies || '';
   let drawImg = prescription.drawing || '';
   let diag = prescription.diagnosis || '';
   let photoList: string[] = prescription.photos ? [...prescription.photos] : [];
-  let vts: any = prescription?.vitals;
+  
+  // Combine vitals from patient object and prescription
+  let vts: any = {
+    ...((patient as any)?.vitals || {}),
+    ...(prescription?.vitals || {})
+  };
+
+  // Extract complaints, allergies, and clinical history from prescription or patient record
+  let rawAllergies = prescription.allergies || patient?.allergies || (patient as any)?.known_allergies || (patient as any)?.allergy || (patient as any)?.allergies_list;
+  let allergiesText = '';
+  if (Array.isArray(rawAllergies)) {
+    allergiesText = rawAllergies.filter(Boolean).join(', ');
+  } else if (typeof rawAllergies === 'string') {
+    allergiesText = rawAllergies.trim();
+  }
+
+  let pastHist = prescription.pastHistory || patient?.pastHistory || patient?.medicalHistory || patient?.clinicalHistory || patient?.history || (patient as any)?.medical_history || (patient as any)?.past_history || (patient as any)?.past_medical_history || '';
+
+  let complaintsText = prescription.complaints || prescription.chiefComplaints || patient?.complaints || (patient as any)?.presentingComplaints || (patient as any)?.chief_complaints || (patient as any)?.symptoms || '';
 
   if (prescription.attachmentUrl && prescription.attachmentUrl.startsWith('data:image')) {
     if (!photoList.includes(prescription.attachmentUrl)) {
@@ -143,11 +164,14 @@ export function getPrescriptionPrintHtml(
         advText = parsed.advice || parsed.suggestions || '';
         if (parsed.examinationFindings) examFindings = parsed.examinationFindings;
         if (parsed.findings && !examFindings) examFindings = parsed.findings;
-        if (parsed.pastHistory) pastHist = parsed.pastHistory;
-        if (parsed.allergies) allergiesText = parsed.allergies;
+        if (parsed.pastHistory && !pastHist) pastHist = parsed.pastHistory;
+        if (parsed.allergies && !allergiesText) {
+          allergiesText = typeof parsed.allergies === 'string' ? parsed.allergies : (Array.isArray(parsed.allergies) ? parsed.allergies.join(', ') : '');
+        }
+        if (parsed.complaints && !complaintsText) complaintsText = parsed.complaints;
         if (parsed.drawing) drawImg = parsed.drawing;
         if (parsed.diagnosis && !diag) diag = parsed.diagnosis;
-        if (parsed.vitals && !vts) vts = parsed.vitals;
+        if (parsed.vitals) vts = { ...vts, ...parsed.vitals };
         if (parsed.photos && Array.isArray(parsed.photos)) {
           parsed.photos.forEach((ph: string) => {
             if (ph && !photoList.includes(ph)) photoList.push(ph);
@@ -234,37 +258,53 @@ export function getPrescriptionPrintHtml(
     }
   }
 
-  // Format Diagnosis, Past History, Examination Findings, Advice, Drawing, and Doctor Photos content
-  let additionalSections = '';
-
-  if (diag) {
-    additionalSections += `
-      <div style="margin-top: 14px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
-        <div style="font-weight: 800; font-size: 10.5px; text-transform: uppercase; color: #dc2626; letter-spacing: 0.06em; margin-bottom: 4px;">Diagnosis / Clinical Impression:</div>
-        <div style="font-size: 13px; color: #0f172a; font-weight: 700; line-height: 1.5; background: #fef2f2; border: 1.5px solid #fee2e2; border-radius: 6px; padding: 8px 12px; border-left: 4px solid #dc2626;">
-          ${diag}
+  // Format Diagnosis, Examination Findings, Advice, Drawing, and Doctor Photos content
+  let clinicalSummaryHtml = `
+    <div style="margin-bottom: 12px; font-family: 'Plus Jakarta Sans', sans-serif; display: flex; flex-direction: column; gap: 8px; page-break-inside: avoid;">
+      <!-- Documented Allergies -->
+      ${allergiesText ? `
+        <div style="background: #fff5f5; border: 1.5px solid #fecaca; border-radius: 6px; padding: 7px 12px; border-left: 4px solid #dc2626;">
+          <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: #b91c1c; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px;">
+            <span>⚠️ DOCUMENTED ALLERGIES & DRUG SENSITIVITIES:</span>
+          </div>
+          <div style="font-size: 12.5px; color: #7f1d1d; font-weight: 800; margin-top: 2px; white-space: pre-wrap;">${allergiesText}</div>
         </div>
-      </div>
-    `;
-  }
+      ` : `
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 5px 10px; border-left: 3px solid #16a34a; display: flex; align-items: center; gap: 6px;">
+          <span style="font-size: 10px; font-weight: 800; color: #166534; text-transform: uppercase; letter-spacing: 0.05em;">🛡️ Documented Allergies:</span>
+          <span style="font-size: 11.5px; color: #15803d; font-weight: 700;">No Known Drug Allergies (NKDA) Recorded</span>
+        </div>
+      `}
 
-  if (allergiesText) {
-    additionalSections += `
-      <div style="margin-top: 14px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
-        <div style="font-weight: 800; font-size: 10.5px; text-transform: uppercase; color: #b91c1c; letter-spacing: 0.06em; margin-bottom: 4px;">⚠️ Allergies & Drug Sensitivities:</div>
-        <div style="font-size: 13px; color: #7f1d1d; font-weight: 700; line-height: 1.5; background: #fff5f5; border: 1.5px solid #fecaca; border-radius: 6px; padding: 8px 12px; border-left: 4px solid #b91c1c; white-space: pre-wrap;">${allergiesText}</div>
-      </div>
-    `;
-  }
+      <!-- Clinical History, Complaints & Diagnosis -->
+      ${(complaintsText || pastHist || diag) ? `
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; width: 100%;">
+          ${complaintsText ? `
+            <div style="flex: 1; min-width: 220px; background: #f0fdfa; border: 1.5px solid #ccfbf1; border-radius: 6px; padding: 7px 10px; border-left: 3.5px solid #0d9488;">
+              <div style="font-weight: 800; font-size: 9.5px; text-transform: uppercase; color: #0f766e; letter-spacing: 0.05em;">💬 Chief Complaints / Symptoms:</div>
+              <div style="font-size: 12px; color: #115e59; font-weight: 600; margin-top: 2px; white-space: pre-wrap;">${complaintsText}</div>
+            </div>
+          ` : ''}
 
-  if (pastHist) {
-    additionalSections += `
-      <div style="margin-top: 14px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; page-break-inside: avoid;">
-        <div style="font-weight: 800; font-size: 10.5px; text-transform: uppercase; color: #374151; letter-spacing: 0.06em; margin-bottom: 4px;">📋 Past Medical History & Previous Treatments:</div>
-        <div style="font-size: 12.5px; color: #1f2937; font-weight: 600; line-height: 1.5; background: #f9fafb; border: 1.5px solid #e5e7eb; border-radius: 6px; padding: 8px 12px; border-left: 4px solid #4b5563; white-space: pre-wrap;">${pastHist}</div>
-      </div>
-    `;
-  }
+          ${pastHist ? `
+            <div style="flex: 1; min-width: 220px; background: #f9fafb; border: 1.5px solid #e5e7eb; border-radius: 6px; padding: 7px 10px; border-left: 3.5px solid #4b5563;">
+              <div style="font-weight: 800; font-size: 9.5px; text-transform: uppercase; color: #374151; letter-spacing: 0.05em;">📋 Clinical & Past Medical History:</div>
+              <div style="font-size: 12px; color: #1f2937; font-weight: 600; margin-top: 2px; white-space: pre-wrap;">${pastHist}</div>
+            </div>
+          ` : ''}
+
+          ${diag ? `
+            <div style="width: 100%; background: #fef2f2; border: 1.5px solid #fee2e2; border-radius: 6px; padding: 7px 10px; border-left: 3.5px solid #dc2626;">
+              <div style="font-weight: 800; font-size: 9.5px; text-transform: uppercase; color: #dc2626; letter-spacing: 0.05em;">🩺 Diagnosis / Clinical Impression:</div>
+              <div style="font-size: 12.5px; color: #0f172a; font-weight: 800; margin-top: 2px;">${diag}</div>
+            </div>
+          ` : ''}
+        </div>
+      ` : ''}
+    </div>
+  `;
+
+  let additionalSections = '';
 
   if (examFindings) {
     additionalSections += `
@@ -612,6 +652,8 @@ export function getPrescriptionPrintHtml(
               </div>
             </div>
             
+            ${clinicalSummaryHtml}
+
             <div class="rx-container">
               <div class="rx-symbol">Rx</div>
             </div>

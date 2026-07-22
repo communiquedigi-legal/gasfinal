@@ -1231,7 +1231,11 @@ export default function OPD() {
         gender: selectedPatient.gender,
         mrn: selectedPatient.mrn,
         phone: selectedPatient.phone || selectedPatient.mobile || '',
-        fatherName: selectedPatient.fatherName || selectedPatient.father_name || ''
+        fatherName: selectedPatient.fatherName || selectedPatient.father_name || '',
+        allergies: selectedPatient.allergies || (selectedPatient as any).known_allergies || (selectedPatient as any).allergies_list,
+        pastHistory: selectedPatient.pastHistory || (selectedPatient as any).medical_history || (selectedPatient as any).past_history || (selectedPatient as any).history,
+        medicalHistory: selectedPatient.medicalHistory,
+        complaints: (selectedPatient as any).complaints || (selectedPatient as any).presentingComplaints
       },
       {
         date: prescription.date,
@@ -3109,7 +3113,11 @@ export default function OPD() {
         gender: patient.gender,
         mrn: patient.mrn,
         phone: patient.phone || patient.mobile || '',
-        fatherName: patient.fatherName || patient.father_name || ''
+        fatherName: patient.fatherName || patient.father_name || '',
+        allergies: patient.allergies || (patient as any).known_allergies || (patient as any).allergies_list,
+        pastHistory: patient.pastHistory || (patient as any).medical_history || (patient as any).past_history || (patient as any).history,
+        medicalHistory: patient.medicalHistory,
+        complaints: (patient as any).complaints || (patient as any).presentingComplaints
       },
       {
         date: latestRx.date || latestRx.prescription_date || getLocalDateString(),
@@ -5489,7 +5497,11 @@ export default function OPD() {
                       gender: selectedPatient.gender,
                       mrn: selectedPatient.mrn,
                       phone: selectedPatient.phone || selectedPatient.mobile || '',
-                      fatherName: selectedPatient.fatherName || selectedPatient.father_name || ''
+                      fatherName: selectedPatient.fatherName || selectedPatient.father_name || '',
+                      allergies: selectedPatient.allergies || (selectedPatient as any).known_allergies || (selectedPatient as any).allergies_list,
+                      pastHistory: selectedPatient.pastHistory || (selectedPatient as any).medical_history || (selectedPatient as any).past_history || (selectedPatient as any).history,
+                      medicalHistory: selectedPatient.medicalHistory,
+                      complaints: (selectedPatient as any).complaints || (selectedPatient as any).presentingComplaints
                     },
                     {
                       date: rx.date || rx.prescription_date,
@@ -5655,7 +5667,11 @@ export default function OPD() {
                     gender: selectedPatient.gender,
                     mrn: selectedPatient.mrn,
                     phone: selectedPatient.phone || selectedPatient.mobile || '',
-                    fatherName: selectedPatient.fatherName || selectedPatient.father_name || ''
+                    fatherName: selectedPatient.fatherName || selectedPatient.father_name || '',
+                    allergies: selectedPatient.allergies || (selectedPatient as any).known_allergies || (selectedPatient as any).allergies_list,
+                    pastHistory: selectedPatient.pastHistory || (selectedPatient as any).medical_history || (selectedPatient as any).past_history || (selectedPatient as any).history,
+                    medicalHistory: selectedPatient.medicalHistory,
+                    complaints: (selectedPatient as any).complaints || (selectedPatient as any).presentingComplaints
                   },
                   {
                     date: rx.date || rx.prescription_date,

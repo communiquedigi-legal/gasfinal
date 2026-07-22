@@ -46,6 +46,12 @@ export interface Patient {
   attendingDoctorId?: string;
   isReferral?: boolean;
   referredBy?: string;
+  allergies?: string | string[];
+  pastHistory?: string;
+  medicalHistory?: string;
+  clinicalHistory?: string;
+  complaints?: string;
+  vitals?: any;
 }
 
 export interface Appointment {

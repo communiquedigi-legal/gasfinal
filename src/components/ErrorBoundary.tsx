@@ -25,7 +25,7 @@ export default class ErrorBoundary extends React.Component<any, any> {
       }
       return (
         <div className="p-6 bg-rose-50/50 border border-rose-100 rounded-2xl text-center max-w-2xl mx-auto my-8">
-          <p className="text-xs font-bold text-rose-800">An unexpected exception occurred inside the diagnostics module.</p>
+          <p className="text-xs font-bold text-rose-800">An unexpected exception occurred while rendering this module.</p>
           <p className="text-[11px] text-rose-600 mt-2 font-mono">{self.state.error?.toString()}</p>
           <button
             onClick={() => self.setState({ hasError: false, error: null })}

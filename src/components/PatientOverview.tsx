@@ -617,7 +617,11 @@ View full details at: ${shareUrl}
         gender: selectedPatient.gender,
         mrn: selectedPatient.mrn,
         phone: selectedPatient.phone || selectedPatient.mobile || '',
-        fatherName: selectedPatient.fatherName || selectedPatient.father_name || ''
+        fatherName: selectedPatient.fatherName || selectedPatient.father_name || '',
+        allergies: selectedPatient.allergies || (selectedPatient as any).known_allergies || (selectedPatient as any).allergies_list,
+        pastHistory: selectedPatient.pastHistory || (selectedPatient as any).medical_history || (selectedPatient as any).past_history || (selectedPatient as any).history,
+        medicalHistory: selectedPatient.medicalHistory,
+        complaints: (selectedPatient as any).complaints || (selectedPatient as any).presentingComplaints
       },
       prescriptionData ? {
         ...prescriptionData,
