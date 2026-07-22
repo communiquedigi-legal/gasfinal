@@ -38,6 +38,7 @@ import OTInventory from './OTInventory';
 import OTConsentManagement from './OTConsentManagement';
 import OTClinicalRecords from './OTClinicalRecords';
 import SurgicalSafetyChecklist from './SurgicalSafetyChecklist';
+import PostOpForms from './PostOpForms';
 
 const INITIAL_INFECTION_LOGS: OTInfectionControlLog[] = [
   { id: 'inf-1', date: '2026-07-08', time: '06:00 AM', theatreId: '1', theatreName: 'OT Room-1', cleaningType: 'Fumigation', disinfectantsUsed: 'Bacillocid Special 2%', airParticleCount: '1250', cultureSwabResult: 'Negative', loggedBy: 'Dr. Sarah Sharma' },
@@ -98,6 +99,7 @@ export default function OTManagement() {
 
   // Clinical workflow & Infection control states
   const [clinicalWorkflowRecord, setClinicalWorkflowRecord] = useState<OperationRecord | null>(null);
+  const [postOpRecord, setPostOpRecord] = useState<OperationRecord | null>(null);
   const [infectionLogs, setInfectionLogs] = useState<OTInfectionControlLog[]>([]);
   const [isInfectionLogOpen, setIsInfectionLogOpen] = useState(false);
   const [newInfectionLog, setNewInfectionLog] = useState({
@@ -549,6 +551,7 @@ export default function OTManagement() {
         <TabsList className="bg-slate-100 p-1 flex flex-wrap gap-1">
           <TabsTrigger value="theatres">OT Status</TabsTrigger>
           <TabsTrigger value="records">Operation Records</TabsTrigger>
+          <TabsTrigger value="postop">Post-Op Care & Forms</TabsTrigger>
           <TabsTrigger value="inventory">OT Inventory</TabsTrigger>
           <TabsTrigger value="consents">Consent Management</TabsTrigger>
           <TabsTrigger value="infection">Infection Control Logs</TabsTrigger>
@@ -861,6 +864,16 @@ export default function OTManagement() {
                           <FileText className="w-4 h-4" />
                           {checklistInfo ? `Checklist (${checklistInfo.percentComplete}%)` : 'Surgical Checklist'}
                         </Button>
+
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="gap-2 text-teal-700 hover:text-teal-800 hover:bg-teal-50 font-bold h-9 border border-teal-200 bg-teal-50/50"
+                          onClick={() => setPostOpRecord({ ...record, surgeonName: surgeon?.name || 'Not Assigned' })}
+                        >
+                          <FileText className="w-4 h-4 text-teal-600" />
+                          Post-Op Care Forms
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -874,6 +887,10 @@ export default function OTManagement() {
               </div>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="postop" className="mt-6">
+          <PostOpForms />
         </TabsContent>
 
         <TabsContent value="inventory" className="mt-6">
@@ -1242,6 +1259,18 @@ export default function OTManagement() {
             setSurgicalChecklists(saved);
           }}
         />
+      )}
+
+      {postOpRecord && (
+        <Dialog open={!!postOpRecord} onOpenChange={() => setPostOpRecord(null)}>
+          <DialogContent className="fixed inset-0 top-0 left-0 translate-x-0 translate-y-0 w-screen h-screen max-w-none max-h-none sm:max-w-none rounded-none m-0 p-0 flex flex-col bg-slate-50 overflow-y-auto border-none shadow-none z-50">
+            <PostOpForms
+              record={postOpRecord}
+              patient={patients.find(p => p.id === (postOpRecord.patientId || postOpRecord.patient_id))}
+              onClose={() => setPostOpRecord(null)}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

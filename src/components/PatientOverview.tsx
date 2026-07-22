@@ -62,6 +62,7 @@ import { getPatientReportHtml } from '@/lib/patientReportPrint';
 import { normalizeRole } from '@/utils/rbac';
 import OTConsentManagement from './OTConsentManagement';
 import SurgicalSafetyChecklist from './SurgicalSafetyChecklist';
+import PostOpForms from './PostOpForms';
 import { ClipboardCheck } from 'lucide-react';
 import { 
   Dialog, 
@@ -183,6 +184,8 @@ export default function PatientOverview({ userRole }: { userRole?: string }) {
 
   const [isConsentOpen, setIsConsentOpen] = useState(false);
   const [isSurgicalChecklistOpen, setIsSurgicalChecklistOpen] = useState(false);
+  const [isPostOpOpen, setIsPostOpOpen] = useState(false);
+  const [postOpDefaultTab, setPostOpDefaultTab] = useState<'checklist' | 'instructions'>('checklist');
 
   const activeOTRecord = useMemo(() => {
     if (!selectedPatient) return null;
@@ -1345,6 +1348,14 @@ View full details at: ${shareUrl}
           <Button variant="outline" className="gap-2 border-indigo-300 text-indigo-700 hover:bg-indigo-50 font-semibold text-xs h-9" onClick={() => setIsSurgicalChecklistOpen(true)}>
             <ClipboardCheck className="w-4 h-4" />
             Surgical Checklist
+          </Button>
+          <Button variant="outline" className="gap-2 border-teal-300 text-teal-700 hover:bg-teal-50 font-semibold text-xs h-9" onClick={() => { setPostOpDefaultTab('checklist'); setIsPostOpOpen(true); }}>
+            <ClipboardCheck className="w-4 h-4" />
+            Post-Op Check List
+          </Button>
+          <Button variant="outline" className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50 font-semibold text-xs h-9" onClick={() => { setPostOpDefaultTab('instructions'); setIsPostOpOpen(true); }}>
+            <FileText className="w-4 h-4" />
+            Post-Op Instructions
           </Button>
           <Button variant="outline" className="gap-2" onClick={handlePrintPatient360Report}>
             <Printer className="w-4 h-4" />
@@ -2884,6 +2895,20 @@ View full details at: ${shareUrl}
             </DialogContent>
           </Dialog>
         )
+      )}
+
+      {/* Post Operative Care Forms Modal */}
+      {isPostOpOpen && (
+        <Dialog open={isPostOpOpen} onOpenChange={setIsPostOpOpen}>
+          <DialogContent className="fixed inset-0 top-0 left-0 translate-x-0 translate-y-0 w-screen h-screen max-w-none max-h-none sm:max-w-none rounded-none m-0 p-0 flex flex-col bg-slate-50 overflow-y-auto border-none shadow-none z-50">
+            <PostOpForms 
+              patient={selectedPatient}
+              record={activeOTRecord}
+              defaultFormTab={postOpDefaultTab}
+              onClose={() => setIsPostOpOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
