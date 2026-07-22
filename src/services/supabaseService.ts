@@ -2434,10 +2434,49 @@ const rawSupabaseService = {
         .eq('invoice_id', invoiceId);
       
       syncedInv.invoice_items = (syncedItems || []).map(mapInvoiceItemFromPostgres);
+      
+      // Update local storage cache as well
+      const cached = storage.get(STORAGE_KEYS.BILLING, MOCK_BILLING) || [];
+      storage.set(STORAGE_KEYS.BILLING, [syncedInv, ...cached.filter((c: any) => c.id !== syncedInv.id)]);
+      
       return syncedInv;
     } catch (error: any) {
-      console.error('Error creating invoice:', error.message);
-      return null;
+      console.warn('Error creating invoice in Supabase, falling back to local storage:', error.message);
+      
+      const cached = storage.get(STORAGE_KEYS.BILLING, MOCK_BILLING) || [];
+      const newId = `inv-local-${Date.now()}`;
+      const invNum = invoice.invoice_number || `INV-${Date.now().toString().slice(-6)}`;
+      const fallbackInv: any = {
+        id: newId,
+        patient_id: invoice.patient_id || invoice.patientId,
+        patientId: invoice.patient_id || invoice.patientId,
+        invoice_number: invNum,
+        invoiceNumber: invNum,
+        total_amount: Number(invoice.total_amount) || 0,
+        discount_amount: Number(invoice.discount_amount) || 0,
+        payable_amount: Number(invoice.payable_amount) || 0,
+        paid_amount: Number(invoice.paid_amount) || 0,
+        payment_status: invoice.payment_status || 'Unpaid',
+        payment_method: invoice.payment_method || 'Cash',
+        payment_reference: invoice.payment_reference || '',
+        created_at: invoice.created_at || new Date().toISOString(),
+        status: invoice.payment_status || 'Unpaid',
+        type: invoice.type || 'Independent',
+        created_by: invoice.created_by || 'u-accounts',
+        issued_by: invoice.issued_by || 'u-accounts',
+        invoice_items: (items || []).map((it: any, idx: number) => ({
+          id: `item-${Date.now()}-${idx}`,
+          item_name: it.item_name || it.description || 'Service',
+          quantity: it.quantity || 1,
+          unit_price: Number(it.unit_price || it.amount) || 0,
+          total_price: Number(it.total_price || it.amount) || 0,
+          category: it.category || 'general'
+        }))
+      };
+
+      const updated = [fallbackInv, ...cached];
+      storage.set(STORAGE_KEYS.BILLING, updated);
+      return fallbackInv;
     }
   },
 

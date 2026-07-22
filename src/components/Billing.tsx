@@ -981,6 +981,7 @@ export default function Billing() {
   }, [searchQuery, filterCategory, recentInvoicesStartDate, recentInvoicesEndDate, filterPaymentMethod]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
+  const [isGeneratingBill, setIsGeneratingBill] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<any>(null);
 
@@ -1347,65 +1348,119 @@ export default function Billing() {
   const finalEditAmount = Math.max(0, totalInvoiceAmount - (editingBill?.discount || 0));
 
   const handleCreateInvoice = async () => {
-    if (!newInvoice.patientId || invoiceItems.length === 0) {
-      toast.error('Please select a patient and add at least one item');
+    if (invoiceItems.length === 0) {
+      toast.error('Please add at least one item or service to the invoice');
       return;
     }
 
-    const disc = Number(newInvoice.discount) || 0;
-    const finalAmountVal = Math.max(0, totalInvoiceAmount - disc);
-    
-    let paidAmt = 0;
-    let statusText = 'Unpaid';
-    
-    if (paymentStatus === 'Paid') {
-      paidAmt = finalAmountVal;
-      statusText = 'Paid';
-    } else if (paymentStatus === 'Partial') {
-      const entered = parseFloat(initialPaidAmount) || 0;
-      paidAmt = Math.min(finalAmountVal, Math.max(0, entered));
-      statusText = paidAmt >= finalAmountVal ? 'Paid' : (paidAmt > 0 ? 'Partial' : 'Unpaid');
-    } else {
-      paidAmt = 0;
-      statusText = 'Unpaid';
+    let targetPatientId = newInvoice.patientId;
+
+    // Auto-match if user typed name/phone/MRN but didn't click dropdown item
+    if (!targetPatientId && patientSearchTerm.trim()) {
+      const term = patientSearchTerm.trim().toLowerCase();
+      const matched = patients.find(p => 
+        (p.name || '').toLowerCase() === term ||
+        (p.mrn || '').toLowerCase() === term ||
+        p.phone === patientSearchTerm.trim()
+      ) || patients.find(p => 
+        (p.name || '').toLowerCase().includes(term) ||
+        (p.phone || '').includes(patientSearchTerm.trim()) ||
+        (p.mrn || '').toLowerCase().includes(term)
+      );
+
+      if (matched) {
+        targetPatientId = matched.id;
+        setNewInvoice(prev => ({ ...prev, patientId: matched.id }));
+      } else {
+        // Create walk-in patient if name not found in DB
+        try {
+          const createdPat = await supabaseService.createPatient({
+            name: patientSearchTerm.trim(),
+            phone: 'N/A',
+            gender: 'Other',
+            age: 30,
+            address: 'Walk-In Patient',
+            status: 'Outpatient'
+          });
+          if (createdPat) {
+            targetPatientId = createdPat.id;
+            setNewInvoice(prev => ({ ...prev, patientId: createdPat.id }));
+            await fetchData();
+          }
+        } catch (err) {
+          console.error('Failed to create walk-in patient:', err);
+        }
+      }
     }
 
-    const billToAdd = {
-      patient_id: newInvoice.patientId,
-      total_amount: totalInvoiceAmount,
-      discount_amount: disc,
-      payable_amount: finalAmountVal,
-      paid_amount: paidAmt,
-      payment_status: statusText,
-      payment_method: paymentStatus === 'Unpaid' ? 'N/A' : newInvoice.paymentMode,
-      payment_reference: invoicePaymentRef || '',
-      status: statusText,
-      type: 'Independent',
-      created_by: currentUser?.id || 'u-accounts',
-      issued_by: currentUser?.id || 'u-accounts',
-      created_at: invoiceDateTime ? new Date(invoiceDateTime).toISOString() : new Date().toISOString()
-    };
-    
-    const itemsToInsert = invoiceItems.map(item => ({
-      item_name: item.description,
-      quantity: 1,
-      unit_price: item.amount,
-      total_price: item.amount,
-      category: item.category
-    }));
+    if (!targetPatientId) {
+      toast.error('Please select a patient or type a patient name');
+      return;
+    }
 
-    const result = await supabaseService.createInvoice(billToAdd, itemsToInsert);
-    if (result) {
-      fetchData();
-      setInvoiceItems([]);
-      setNewInvoice({ patientId: '', paymentMode: 'Cash', discount: 0 });
-      setPatientSearchTerm('');
-      setShowPatientResults(false);
-      setIsInvoiceOpen(false);
-      toast.success('Independent invoice generated');
-      logAudit('CREATE_INVOICE', result.id, { bill: result });
-    } else {
-      toast.error('Failed to create invoice');
+    setIsGeneratingBill(true);
+
+    try {
+      const disc = Number(newInvoice.discount) || 0;
+      const finalAmountVal = Math.max(0, totalInvoiceAmount - disc);
+      
+      let paidAmt = 0;
+      let statusText = 'Unpaid';
+      
+      if (paymentStatus === 'Paid') {
+        paidAmt = finalAmountVal;
+        statusText = 'Paid';
+      } else if (paymentStatus === 'Partial') {
+        const entered = parseFloat(initialPaidAmount) || 0;
+        paidAmt = Math.min(finalAmountVal, Math.max(0, entered));
+        statusText = paidAmt >= finalAmountVal ? 'Paid' : (paidAmt > 0 ? 'Partial' : 'Unpaid');
+      } else {
+        paidAmt = 0;
+        statusText = 'Unpaid';
+      }
+
+      const billToAdd = {
+        patient_id: targetPatientId,
+        total_amount: totalInvoiceAmount,
+        discount_amount: disc,
+        payable_amount: finalAmountVal,
+        paid_amount: paidAmt,
+        payment_status: statusText,
+        payment_method: paymentStatus === 'Unpaid' ? 'N/A' : newInvoice.paymentMode,
+        payment_reference: invoicePaymentRef || '',
+        status: statusText,
+        type: 'Independent',
+        created_by: currentUser?.id || 'u-accounts',
+        issued_by: currentUser?.id || 'u-accounts',
+        created_at: invoiceDateTime ? new Date(invoiceDateTime).toISOString() : new Date().toISOString()
+      };
+      
+      const itemsToInsert = invoiceItems.map(item => ({
+        item_name: item.description,
+        quantity: 1,
+        unit_price: item.amount,
+        total_price: item.amount,
+        category: item.category
+      }));
+
+      const result = await supabaseService.createInvoice(billToAdd, itemsToInsert);
+      if (result) {
+        await fetchData();
+        setInvoiceItems([]);
+        setNewInvoice({ patientId: '', paymentMode: 'Cash', discount: 0 });
+        setPatientSearchTerm('');
+        setShowPatientResults(false);
+        setIsInvoiceOpen(false);
+        toast.success('Independent invoice generated successfully!');
+        logAudit('CREATE_INVOICE', result.id, { bill: result });
+      } else {
+        toast.error('Failed to create invoice');
+      }
+    } catch (err: any) {
+      console.error('Error generating bill:', err);
+      toast.error('An error occurred while generating the bill');
+    } finally {
+      setIsGeneratingBill(false);
     }
   };
 
@@ -2619,7 +2674,10 @@ export default function Billing() {
                     setIsInvoiceOpen(false);
                   }}>Discard</Button>
                 </DialogTrigger>
-                <Button className="bg-medical-blue" onClick={handleCreateInvoice} disabled={invoiceItems.length === 0}>Generate Bill</Button>
+                <Button className="bg-medical-blue gap-2" onClick={handleCreateInvoice} disabled={invoiceItems.length === 0 || isGeneratingBill}>
+                  {isGeneratingBill && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {isGeneratingBill ? 'Generating Bill...' : 'Generate Bill'}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
