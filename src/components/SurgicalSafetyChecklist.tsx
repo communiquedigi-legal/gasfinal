@@ -492,9 +492,9 @@ export default function SurgicalSafetyChecklist({ record, patient, onClose, onSa
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 overflow-hidden rounded-2xl border-none shadow-2xl bg-white text-slate-800">
+      <DialogContent className="fixed inset-0 top-0 left-0 translate-x-0 translate-y-0 w-screen h-screen max-w-none max-h-none sm:max-w-none rounded-none m-0 p-0 flex flex-col bg-slate-50 overflow-hidden border-none shadow-none z-50 text-slate-800">
         {/* Header section with progress indicator */}
-        <DialogHeader className="p-6 bg-gradient-to-r from-slate-900 to-slate-850 text-white relative">
+        <DialogHeader className="p-6 bg-gradient-to-r from-slate-900 to-slate-850 text-white relative shrink-0">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -524,6 +524,15 @@ export default function SurgicalSafetyChecklist({ record, patient, onClose, onSa
               >
                 <Printer className="w-3.5 h-3.5" />
                 Print Filled Form
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={onClose} 
+                className="text-white hover:bg-white/20 rounded-full h-8 w-8 ml-2"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
               </Button>
             </div>
           </div>
@@ -657,8 +666,8 @@ export default function SurgicalSafetyChecklist({ record, patient, onClose, onSa
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white hover:border-indigo-200 transition-colors">
                   <Checkbox 
                     checked={signInChecks.patientConfirmedIdentity}
                     onCheckedChange={checked => setSignInChecks({...signInChecks, patientConfirmedIdentity: !!checked})}
@@ -869,8 +878,8 @@ export default function SurgicalSafetyChecklist({ record, patient, onClose, onSa
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white hover:border-amber-200 transition-colors">
                   <Checkbox 
                     checked={timeOutChecks.teamIntroduced}
                     onCheckedChange={checked => setTimeOutChecks({...timeOutChecks, teamIntroduced: !!checked})}
@@ -1033,8 +1042,8 @@ export default function SurgicalSafetyChecklist({ record, patient, onClose, onSa
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                <label className="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer bg-white hover:border-emerald-200 transition-colors">
                   <Checkbox 
                     checked={signOutChecks.procedureNameRecorded}
                     onCheckedChange={checked => setSignOutChecks({...signOutChecks, procedureNameRecorded: !!checked})}

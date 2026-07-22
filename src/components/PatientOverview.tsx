@@ -2854,7 +2854,7 @@ View full details at: ${shareUrl}
             </Button>
           </div>
           <div className="flex-1 overflow-y-auto p-6 md:p-8 w-full">
-            <div className="max-w-7xl mx-auto">
+            <div className="w-full">
               <OTConsentManagement patientId={selectedPatient?.id} />
             </div>
           </div>
@@ -2865,38 +2865,26 @@ View full details at: ${shareUrl}
       </Dialog>
 
       {/* WHO Surgical Safety Checklist Modal for Selected Patient */}
-      <Dialog open={isSurgicalChecklistOpen} onOpenChange={setIsSurgicalChecklistOpen}>
-        <DialogContent className="fixed inset-0 top-0 left-0 translate-x-0 translate-y-0 w-screen h-screen max-w-none max-h-none sm:max-w-none rounded-none m-0 p-0 flex flex-col bg-slate-50 overflow-hidden border-none text-slate-800 z-50">
-          <div className="p-6 bg-white border-b border-slate-100 flex items-center justify-between shrink-0">
-            <div className="space-y-1 text-left">
-              <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
-                <ClipboardCheck className="w-5 h-5 text-indigo-600" />
-                WHO Surgical Safety Checklist
-              </h3>
-              <p className="text-xs text-slate-500 font-medium">Verify pre-incision protocols, anesthesia safety checks, and surgical markings.</p>
-            </div>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setIsSurgicalChecklistOpen(false)}>
-              <Plus className="w-4 h-4 rotate-45" />
-            </Button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-6 md:p-8 w-full">
-            <div className="max-w-7xl mx-auto bg-white rounded-2xl border border-slate-200/60 shadow-xs overflow-hidden">
-              {activeOTRecord ? (
-                <SurgicalSafetyChecklist 
-                  record={activeOTRecord} 
-                  patient={selectedPatient} 
-                  onClose={() => setIsSurgicalChecklistOpen(false)}
-                />
-              ) : (
-                <div className="text-center py-12 text-slate-400">
-                  <AlertCircle className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                  No active surgical record available for checklist audit.
-                </div>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {isSurgicalChecklistOpen && (
+        activeOTRecord ? (
+          <SurgicalSafetyChecklist 
+            record={activeOTRecord} 
+            patient={selectedPatient} 
+            onClose={() => setIsSurgicalChecklistOpen(false)}
+          />
+        ) : (
+          <Dialog open={isSurgicalChecklistOpen} onOpenChange={setIsSurgicalChecklistOpen}>
+            <DialogContent className="sm:max-w-[450px] p-6 bg-white rounded-2xl">
+              <div className="text-center py-6 text-slate-500 space-y-3">
+                <AlertCircle className="w-10 h-10 text-amber-500 mx-auto" />
+                <p className="font-bold text-sm text-slate-800">No Active Surgical Record</p>
+                <p className="text-xs text-slate-500">There is no scheduled surgical operation record for this patient yet.</p>
+                <Button onClick={() => setIsSurgicalChecklistOpen(false)} className="mt-2 text-xs font-bold">Close</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )
+      )}
     </div>
   );
 }
