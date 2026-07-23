@@ -21,9 +21,11 @@ export type UserRole =
 export const normalizeRole = (role: string | undefined | null): string => {
   if (!role) return '';
   const r = role.toUpperCase().trim().replace(/_/g, '').replace(/ /g, '');
-  if (r === 'RECEPTION' || r === 'RECEPTIONIST' || r === 'FRONTDESK') return 'RECEPTIONIST';
-  if (r === 'ACCOUNTANT' || r === 'ACCOUNTS' || r === 'FINANCE') return 'ACCOUNTANT';
   if (r === 'SUPERADMIN' || r === 'ADMIN' || r === 'HOSPITALADMIN') return 'ADMIN';
+  if (r === 'RECEPTION' || r === 'RECEPTIONIST' || r === 'FRONTDESK' || r === 'FRONTOFFICE') return 'RECEPTIONIST';
+  if (r === 'ACCOUNTANT' || r === 'ACCOUNTS' || r === 'FINANCE') return 'ACCOUNTANT';
+  if (r === 'DOCTOR' || r === 'SURGEON') return 'DOCTOR';
+  if (r === 'LABSTAFF' || r === 'LAB' || r === 'PATHOLOGIST' || r === 'RADIOLOGIST') return 'LAB_STAFF';
   return r;
 };
 
@@ -99,20 +101,34 @@ export const hasMenuAccess = (path: string, userRole: string | undefined | null)
     case '/ipd':
       return ['DOCTOR', 'RECEPTIONIST', 'NURSE', 'ACCOUNTANT'].includes(norm);
     case '/ot':
-      return ['DOCTOR', 'NURSE', 'SURGEON'].includes(norm);
+      return ['DOCTOR', 'NURSE', 'RECEPTIONIST'].includes(norm);
     case '/lab':
-      return ['DOCTOR', 'NURSE', 'LAB_STAFF', 'RADIOLOGIST', 'PATHOLOGIST', 'ACCOUNTANT'].includes(norm);
+      return ['DOCTOR', 'NURSE', 'LAB_STAFF', 'ACCOUNTANT', 'RECEPTIONIST'].includes(norm);
     case '/patient-overview':
-      return ['DOCTOR', 'RECEPTIONIST', 'NURSE', 'ACCOUNTANT'].includes(norm);
+      return ['DOCTOR', 'RECEPTIONIST', 'NURSE', 'ACCOUNTANT', 'LAB_STAFF', 'PHARMACIST'].includes(norm);
     case '/maternity':
       return ['DOCTOR', 'RECEPTIONIST', 'NURSE'].includes(norm);
+    case '/nursing':
+      return ['DOCTOR', 'NURSE'].includes(norm);
     case '/pharmacy':
     case '/pharmacy/pos':
       return ['PHARMACIST', 'ACCOUNTANT', 'DOCTOR', 'RECEPTIONIST', 'NURSE'].includes(norm);
     case '/billing':
-      return ['ACCOUNTANT'].includes(norm);
+      return ['ACCOUNTANT', 'RECEPTIONIST'].includes(norm);
+    case '/insurance':
+      return ['ACCOUNTANT', 'RECEPTIONIST'].includes(norm);
     case '/expenses':
       return ['ACCOUNTANT'].includes(norm);
+    case '/equipment':
+      return ['DOCTOR', 'NURSE', 'LAB_STAFF', 'ACCOUNTANT'].includes(norm);
+    case '/waste':
+      return ['DOCTOR', 'NURSE', 'LAB_STAFF'].includes(norm);
+    case '/inventory':
+      return ['PHARMACIST', 'ACCOUNTANT', 'NURSE', 'DOCTOR'].includes(norm);
+    case '/bloodbank':
+      return ['DOCTOR', 'NURSE', 'LAB_STAFF'].includes(norm);
+    case '/icu':
+      return ['DOCTOR', 'NURSE'].includes(norm);
     case '/settings':
     case '/staff':
       return false; // restricted to admins only

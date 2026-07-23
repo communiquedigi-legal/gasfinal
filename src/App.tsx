@@ -82,27 +82,37 @@ import { supabaseService, syncOfflineDataWithSupabase } from '@/services/supabas
 import { hasMenuAccess, normalizeRole } from '@/utils/rbac';
 
 const navItems = [
-  { name: 'Dashboard', icon: LayoutDashboard, path: '/', roles: ['SUPER_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK', 'NURSE', 'LAB_STAFF', 'PHARMACIST', 'ACCOUNTANT', 'ACCOUNTS', 'RADIOLOGIST'] },
-  { name: 'Emergency & Triage', icon: ShieldAlert, path: '/emergency', roles: ['SUPER_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK', 'NURSE', 'ACCOUNTANT', 'ACCOUNTS'] },
-  { name: 'OPD Management', icon: Stethoscope, path: '/opd', roles: ['SUPER_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK', 'NURSE', 'ACCOUNTANT', 'ACCOUNTS'] },
-  { name: 'IPD Management', icon: Calendar, path: '/ipd', roles: ['SUPER_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK', 'NURSE', 'ACCOUNTANT', 'ACCOUNTS'] },
-  { name: 'OT Management', icon: Scissors, path: '/ot', roles: ['SUPER_ADMIN', 'DOCTOR', 'SURGEON', 'NURSE'] },
-  { name: 'Lab & Radiology', icon: FlaskConical, path: '/lab', roles: ['SUPER_ADMIN', 'LAB_STAFF', 'ACCOUNTANT', 'ACCOUNTS', 'NURSE', 'RADIOLOGIST', 'PATHOLOGIST', 'DOCTOR'] },
-  { name: 'Patient 360', icon: User, path: '/patient-overview', roles: ['SUPER_ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK', 'ACCOUNTANT', 'ACCOUNTS'] },
-  { name: 'Maternity', icon: Baby, path: '/maternity', roles: ['SUPER_ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK'] },
-  { name: 'Nursing Station', icon: ClipboardList, path: '/nursing', roles: ['SUPER_ADMIN', 'DOCTOR', 'NURSE'] },
+  { name: 'Dashboard', icon: LayoutDashboard, path: '/', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK', 'NURSE', 'LAB_STAFF', 'PHARMACIST', 'ACCOUNTANT', 'ACCOUNTS', 'RADIOLOGIST', 'PATHOLOGIST', 'SURGEON'] },
+  { name: 'Emergency & Triage', icon: ShieldAlert, path: '/emergency', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK', 'NURSE', 'ACCOUNTANT', 'ACCOUNTS'] },
+  { name: 'OPD Management', icon: Stethoscope, path: '/opd', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK', 'NURSE', 'ACCOUNTANT', 'ACCOUNTS'] },
+  { name: 'IPD Management', icon: Calendar, path: '/ipd', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK', 'NURSE', 'ACCOUNTANT', 'ACCOUNTS'] },
+  { name: 'OT Management', icon: Scissors, path: '/ot', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'SURGEON', 'NURSE', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK'] },
+  { name: 'Lab & Radiology', icon: FlaskConical, path: '/lab', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'LAB_STAFF', 'ACCOUNTANT', 'ACCOUNTS', 'NURSE', 'RADIOLOGIST', 'PATHOLOGIST', 'DOCTOR', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK'] },
+  { name: 'Patient 360', icon: User, path: '/patient-overview', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK', 'ACCOUNTANT', 'ACCOUNTS', 'PHARMACIST', 'LAB_STAFF', 'RADIOLOGIST', 'PATHOLOGIST'] },
+  { name: 'Maternity', icon: Baby, path: '/maternity', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK'] },
+  { name: 'Nursing Station', icon: ClipboardList, path: '/nursing', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE'] },
   { name: 'Pharmacy Store', icon: Pill, path: '/pharmacy', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'PHARMACIST', 'ACCOUNTANT', 'ACCOUNTS', 'DOCTOR', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK', 'NURSE'] },
-  { name: 'Billing & Accounts', icon: CreditCard, path: '/billing', roles: ['SUPER_ADMIN', 'ACCOUNTANT', 'ACCOUNTS'] },
-  { name: 'Corporate & TPA', icon: Shield, path: '/insurance', roles: ['SUPER_ADMIN', 'ACCOUNTANT', 'ACCOUNTS', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK'] },
-  { name: 'Expenses', icon: FileText, path: '/expenses', roles: ['SUPER_ADMIN', 'ACCOUNTANT', 'ACCOUNTS'] },
+  { name: 'Billing & Accounts', icon: CreditCard, path: '/billing', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'ACCOUNTANT', 'ACCOUNTS', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK'] },
+  { name: 'Corporate & TPA', icon: Shield, path: '/insurance', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'ACCOUNTANT', 'ACCOUNTS', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK'] },
+  { name: 'Expenses', icon: FileText, path: '/expenses', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'ACCOUNTANT', 'ACCOUNTS'] },
   { name: 'Admin Settings', icon: Settings, path: '/settings', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN'] },
   { name: 'Staff Management', icon: Users, path: '/staff', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN'] },
-  { name: 'Equipment Management', icon: Wrench, path: '/equipment', roles: ['SUPER_ADMIN', 'DOCTOR', 'NURSE', 'ADMIN', 'HOSPITAL_ADMIN', 'ACCOUNTANT', 'ACCOUNTS', 'LAB_STAFF'] },
-  { name: 'Biomedical Waste', icon: Trash2, path: '/waste', roles: ['SUPER_ADMIN', 'DOCTOR', 'NURSE', 'ADMIN', 'HOSPITAL_ADMIN', 'LAB_STAFF'] },
-  { name: 'Inventory & Purchase', icon: Boxes, path: '/inventory', roles: ['SUPER_ADMIN', 'PHARMACIST', 'ACCOUNTANT', 'ACCOUNTS', 'ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE'] },
-  { name: 'Blood Bank', icon: Droplet, path: '/bloodbank', roles: ['SUPER_ADMIN', 'DOCTOR', 'NURSE', 'LAB_STAFF', 'PATHOLOGIST', 'ADMIN', 'HOSPITAL_ADMIN'] },
-  { name: 'ICU Management', icon: Activity, path: '/icu', roles: ['SUPER_ADMIN', 'DOCTOR', 'NURSE', 'ADMIN', 'HOSPITAL_ADMIN'] },
-  { name: 'User Manual & Guide', icon: BookOpen, path: '/manual', roles: ['SUPER_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK', 'NURSE', 'LAB_STAFF', 'PHARMACIST', 'ACCOUNTANT', 'ACCOUNTS', 'SURGEON', 'RADIOLOGIST'] },
+  { name: 'Equipment Management', icon: Wrench, path: '/equipment', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'ACCOUNTANT', 'ACCOUNTS', 'LAB_STAFF'] },
+  { name: 'Biomedical Waste', icon: Trash2, path: '/waste', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'LAB_STAFF'] },
+  { name: 'Inventory & Purchase', icon: Boxes, path: '/inventory', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'PHARMACIST', 'ACCOUNTANT', 'ACCOUNTS', 'DOCTOR', 'NURSE'] },
+  { name: 'Blood Bank', icon: Droplet, path: '/bloodbank', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'LAB_STAFF', 'PATHOLOGIST'] },
+  { name: 'ICU Management', icon: Activity, path: '/icu', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'NURSE'] },
+  { name: 'User Manual & Guide', icon: BookOpen, path: '/manual', roles: ['SUPER_ADMIN', 'ADMIN', 'HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'RECEPTION', 'FRONT_DESK', 'NURSE', 'LAB_STAFF', 'PHARMACIST', 'ACCOUNTANT', 'ACCOUNTS', 'SURGEON', 'RADIOLOGIST', 'PATHOLOGIST'] },
+];
+
+const ROLE_PROFILES = [
+  { id: 'u-admingh', name: 'Admin GH', email: 'admingh', role: 'SUPER_ADMIN', label: 'Super Admin', department: 'Administration', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=AdminGH' },
+  { id: 'u-doctor', name: 'Dr. Rajesh Sharma', email: 'doctor@hospital.com', role: 'DOCTOR', label: 'Doctor Panel', department: 'General Medicine', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rajesh' },
+  { id: 'u-frontdesk', name: 'Front Desk Staff', email: 'frontdesk@hospital.com', role: 'RECEPTION', label: 'Receptionist / Front Desk', department: 'Registration', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Front' },
+  { id: 'u-nurse', name: 'Nurse Head', email: 'nurse@hospital.com', role: 'NURSE', label: 'Nursing Station', department: 'Nursing', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Nurse' },
+  { id: 'u-pharmacy', name: 'Chief Pharmacist', email: 'pharmacy@hospital.com', role: 'PHARMACIST', label: 'Pharmacy Panel', department: 'Pharmacy', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Pharmacy' },
+  { id: 'u-lab', name: 'Lab Technician', email: 'lab@hospital.com', role: 'LAB_STAFF', label: 'Lab & Radiology Panel', department: 'Pathology', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Lab' },
+  { id: 'u-accounts', name: 'Hospital Accountant', email: 'accounts@hospital.com', role: 'ACCOUNTANT', label: 'Accountant & Billing Panel', department: 'Finance', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Accounts' },
 ];
 
 function ProtectedRoute({ children, allowedRoles, user }: { children: ReactNode, allowedRoles: string[], user: any }) {
@@ -118,6 +128,7 @@ function ProtectedRoute({ children, allowedRoles, user }: { children: ReactNode,
   });
 
   if (!hasAccess) {
+    toast.error(`Access restricted: Your current role (${userRole.replace('_', ' ')}) does not have permission for this module.`);
     return <Navigate to="/" replace />;
   }
   return <>{children}</>;
@@ -710,6 +721,44 @@ export default function App() {
   );
 }
 
+function RoleQuickSwitcher({ currentUser, setUser }: { currentUser: any, setUser: (u: any) => void }) {
+  const currentRoleNorm = normalizeRole(currentUser?.role);
+  
+  const handleSelectRole = (profileId: string) => {
+    const profile = ROLE_PROFILES.find(p => p.id === profileId);
+    if (profile) {
+      storage.set(STORAGE_KEYS.SESSION_USER, profile);
+      setUser(profile);
+      toast.success(`Switched active panel to ${profile.label} (${profile.name})`);
+    }
+  };
+
+  const activeProfile = ROLE_PROFILES.find(p => p.id === currentUser?.id) || 
+                        ROLE_PROFILES.find(p => normalizeRole(p.role) === currentRoleNorm) || 
+                        ROLE_PROFILES[0];
+
+  return (
+    <div className="flex items-center gap-2 bg-white/90 px-3 py-1 rounded-full border border-slate-300 shadow-sm">
+      <span className="text-[10px] font-extrabold uppercase text-slate-500 tracking-wider hidden sm:inline">Active Panel:</span>
+      <Select value={activeProfile.id} onValueChange={handleSelectRole}>
+        <SelectTrigger className="h-7 border-none bg-transparent shadow-none text-xs font-bold text-slate-800 p-0 focus:ring-0 gap-1.5 min-w-[130px]">
+          <SelectValue placeholder="Switch Panel" />
+        </SelectTrigger>
+        <SelectContent className="z-50">
+          {ROLE_PROFILES.map((profile) => (
+            <SelectItem key={profile.id} value={profile.id} className="text-xs font-semibold cursor-pointer">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-900">{profile.label}</span>
+                <span className="text-[10px] text-slate-400">({profile.name})</span>
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 function AppLayout({ user, hospitalInfo, handleLogout, isMobileMenuOpen, setIsMobileMenuOpen, setUser, setHospitalInfo }: any) {
   return (
     <div className="flex h-[100dvh] bg-soft-white overflow-hidden">
@@ -740,6 +789,9 @@ function AppLayout({ user, hospitalInfo, handleLogout, isMobileMenuOpen, setIsMo
           </div>
 
           <div className="flex items-center gap-2 lg:gap-4">
+            {/* Role / Panel Switcher */}
+            <RoleQuickSwitcher currentUser={user} setUser={setUser} />
+
             {(user?.role === 'SUPER_ADMIN' || user?.role === 'DOCTOR' || user?.role === 'RECEPTION' || user?.role === 'RECEPTIONIST' || user?.role === 'FRONT_DESK' || user?.role === 'NURSE') && (
               <Dialog>
                 <DialogTrigger asChild>
