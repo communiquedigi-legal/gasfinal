@@ -1,4 +1,4 @@
-import React, { useState, ChangeEvent, useEffect } from 'react';
+import React, { useState, ChangeEvent, useEffect, useRef } from 'react';
 import { 
   Building2, 
   MapPin, 
@@ -29,7 +29,10 @@ import {
   Check,
   Code,
   RefreshCw,
-  Cloud
+  Cloud,
+  Paintbrush,
+  Eraser,
+  RotateCcw
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -869,15 +872,189 @@ export default function Settings({ currentUser, onUserUpdate, onHospitalUpdate }
     storage.set(STORAGE_KEYS.TOKEN_PRINT_SIZE, defaultTokenSize);
   }, [bedRates, otRates, labRates, materialRates, opdCharges, defaultTokenSize]);
 
-  // Prescription State
-  const [prescriptions, setPrescriptions] = useState<any[]>([]);
+  // Prescription State & Templates
+  const DEFAULT_PRESCRIPTION_TEMPLATES = [
+    {
+      id: 'tmpl-1',
+      name: 'Fever / URTI Profile',
+      diagnosis: 'Acute Upper Respiratory Tract Infection (URTI)',
+      allergies: 'No Known Drug Allergies (NKDA)',
+      pastHistory: 'N/A',
+      advice: 'Drink warm water, rest, avoid cold items. Review after 3 days if fever persists.',
+      medicines: [
+        { name: 'Tab Paracetamol 650mg', dosage: '650mg', frequency: '1-0-1', duration: '5 days' },
+        { name: 'Tab Cetirizine 10mg', dosage: '10mg', frequency: '0-0-1', duration: '5 days' },
+        { name: 'Syr Alex Cough Syrup', dosage: '10ml', frequency: '1-1-1', duration: '5 days' }
+      ],
+      vitals: { temp: '100.2', pulse: '88', bp: '120/80', spo2: '98', weight: '65', rr: '18', cbs: '', rs: 'Bilateral clear', cns: 'Conscious' }
+    },
+    {
+      id: 'tmpl-2',
+      name: 'GERD & Gastritis',
+      diagnosis: 'Gastroesophageal Reflux Disease (GERD) / Dyspepsia',
+      allergies: 'No Known Drug Allergies (NKDA)',
+      pastHistory: 'History of acidity',
+      advice: 'Avoid spicy/fried foods, walk 15 mins after meals, dinner at least 2 hours before sleep.',
+      medicines: [
+        { name: 'Cap Pantoprazole 40mg', dosage: '40mg', frequency: '1-0-0 (Before food)', duration: '14 days' },
+        { name: 'Syr Mucaine Gel', dosage: '10ml', frequency: '1-1-1 (After food)', duration: '7 days' }
+      ],
+      vitals: { bp: '128/82', pulse: '76', temp: '98.6', spo2: '99', weight: '70', rr: '16', cbs: 'Soft non-tender', rs: 'Clear', cns: 'Oriented' }
+    },
+    {
+      id: 'tmpl-3',
+      name: 'Hypertension Follow-Up',
+      diagnosis: 'Essential Hypertension',
+      allergies: 'No Known Drug Allergies (NKDA)',
+      pastHistory: 'Known hypertensive for 3 years',
+      advice: 'Low salt diet (<2g/day), regular morning walk, monitor BP daily.',
+      medicines: [
+        { name: 'Tab Telmisartan 40mg', dosage: '40mg', frequency: '1-0-0', duration: '30 days' }
+      ],
+      vitals: { bp: '138/88', pulse: '74', temp: '98.4', spo2: '98', weight: '72', rr: '16', cbs: '', rs: '', cns: '' }
+    }
+  ];
+
+  const [prescriptions, setPrescriptions] = useState<any[]>(() => storage.get(STORAGE_KEYS.PRESCRIPTIONS, []));
   const [newPrescription, setNewPrescription] = useState({
-    patientId: '',
-    doctorId: '',
+    patientId: MOCK_PATIENTS[0]?.id || '',
+    doctorId: currentUser?.id || users[0]?.id || '',
+    date: new Date().toISOString().split('T')[0],
     diagnosis: '',
+    allergies: '',
+    pastHistory: '',
+    advice: '',
+    notes: '',
     medicines: [{ name: '', dosage: '', frequency: '', duration: '' }],
-    notes: ''
+    vitals: {
+      bp: '',
+      pulse: '',
+      temp: '',
+      spo2: '',
+      weight: '',
+      rr: '',
+      cbs: '',
+      rs: '',
+      cns: ''
+    },
+    drawing: ''
   });
+
+  const [prescriptionTemplates, setPrescriptionTemplates] = useState(() => 
+    storage.get('hms_prescription_templates', DEFAULT_PRESCRIPTION_TEMPLATES)
+  );
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+
+  // Canvas sketchpad drawing refs & states
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [drawMode, setDrawMode] = useState<'pen' | 'eraser'>('pen');
+  const [penColor, setPenColor] = useState('#1d4ed8');
+  const [lineWidth, setLineWidth] = useState(3);
+
+  const getCanvasCoords = (e: any) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const x = ((clientX - rect.left) / rect.width) * canvas.width;
+    const y = ((clientY - rect.top) / rect.height) * canvas.height;
+    return { x, y };
+  };
+
+  const startDrawing = (e: any) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    setIsDrawing(true);
+    const { x, y } = getCanvasCoords(e);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+
+    if (drawMode === 'eraser') {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.lineWidth = lineWidth * 4;
+    } else {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = penColor;
+      ctx.lineWidth = lineWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+    }
+  };
+
+  const draw = (e: any) => {
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const { x, y } = getCanvasCoords(e);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    if (!isDrawing) return;
+    setIsDrawing(false);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL('image/png');
+    setNewPrescription(prev => ({ ...prev, drawing: dataUrl }));
+  };
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setNewPrescription(prev => ({ ...prev, drawing: '' }));
+  };
+
+  const handleApplyTemplate = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    if (!templateId) return;
+    const tmpl = prescriptionTemplates.find((t: any) => t.id === templateId);
+    if (!tmpl) return;
+
+    setNewPrescription(prev => ({
+      ...prev,
+      diagnosis: tmpl.diagnosis || prev.diagnosis,
+      allergies: tmpl.allergies || prev.allergies,
+      pastHistory: tmpl.pastHistory || prev.pastHistory,
+      advice: tmpl.advice || prev.advice,
+      medicines: tmpl.medicines && tmpl.medicines.length > 0 ? JSON.parse(JSON.stringify(tmpl.medicines)) : prev.medicines,
+      vitals: tmpl.vitals ? { ...prev.vitals, ...tmpl.vitals } : prev.vitals
+    }));
+    toast.success(`Template "${tmpl.name}" applied`);
+  };
+
+  const handleSaveCurrentAsTemplate = () => {
+    const name = window.prompt("Enter a name for this prescription template:");
+    if (!name || !name.trim()) return;
+
+    const newTmpl = {
+      id: `tmpl-${Date.now()}`,
+      name: name.trim(),
+      diagnosis: newPrescription.diagnosis,
+      allergies: newPrescription.allergies,
+      pastHistory: newPrescription.pastHistory,
+      advice: newPrescription.advice,
+      medicines: newPrescription.medicines,
+      vitals: newPrescription.vitals
+    };
+
+    const updated = [...prescriptionTemplates, newTmpl];
+    setPrescriptionTemplates(updated);
+    storage.set('hms_prescription_templates', updated);
+    setSelectedTemplateId(newTmpl.id);
+    toast.success(`Template "${name}" saved!`);
+  };
 
   const handleSaveHospitalInfo = async () => {
     storage.set(STORAGE_KEYS.HOSPITAL_INFO, hospitalInfo);
@@ -1000,10 +1177,10 @@ export default function Settings({ currentUser, onUserUpdate, onHospitalUpdate }
   };
 
   const handleAddMedicine = () => {
-    setNewPrescription({
-      ...newPrescription,
-      medicines: [...newPrescription.medicines, { name: '', dosage: '', frequency: '', duration: '' }]
-    });
+    setNewPrescription(prev => ({
+      ...prev,
+      medicines: [...prev.medicines, { name: '', dosage: '', frequency: '', duration: '' }]
+    }));
   };
 
   const handleSavePrescription = () => {
@@ -1011,8 +1188,18 @@ export default function Settings({ currentUser, onUserUpdate, onHospitalUpdate }
       toast.error('Please select patient and doctor');
       return;
     }
-    setPrescriptions([...prescriptions, { ...newPrescription, id: `pr-${Date.now()}`, date: new Date().toLocaleDateString() }]);
+    const savedRecord = {
+      ...newPrescription,
+      id: `pr-${Date.now()}`,
+      date: newPrescription.date || new Date().toISOString().split('T')[0]
+    };
+    const updated = [savedRecord, ...prescriptions];
+    setPrescriptions(updated);
+    storage.set(STORAGE_KEYS.PRESCRIPTIONS, updated);
     toast.success('Prescription saved successfully');
+    
+    // Automatically trigger print modal
+    printPrescription(savedRecord);
   };
 
   const handleAddBedRate = () => {
@@ -2335,119 +2522,660 @@ export default function Settings({ currentUser, onUserUpdate, onHospitalUpdate }
           </Card>
         </TabsContent>
         <TabsContent value="prescriptions">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-2 border-none shadow-sm">
-              <CardHeader>
-                <CardTitle>New Prescription</CardTitle>
-                <CardDescription>Create and print a medical prescription.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Select Patient</Label>
-                    <Input value={MOCK_PATIENTS.find(p => p.id === newPrescription.patientId)?.name || ''} readOnly className="bg-slate-50" placeholder="Selected via list below/trigger" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Select Doctor</Label>
-                    <Select value={newPrescription.doctorId} onValueChange={(v) => setNewPrescription({...newPrescription, doctorId: v})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select doctor" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {users.filter(u => u.role === 'DOCTOR' || u.role === 'SUPER_ADMIN').map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label>Diagnosis</Label>
-                    <Input placeholder="e.g. Acute Viral Fever" value={newPrescription.diagnosis} onChange={(e) => setNewPrescription({...newPrescription, diagnosis: e.target.value})} />
-                  </div>
-                </div>
+          {(() => {
+            const selectedPatientObj = MOCK_PATIENTS.find(p => p.id === newPrescription.patientId);
+            const patientPrescriptions = prescriptions.filter(pr => !newPrescription.patientId || pr.patientId === newPrescription.patientId);
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-bold">Medicines</Label>
-                    <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleAddMedicine}>
-                      <Plus className="w-3 h-3" />
-                      Add Medicine
-                    </Button>
-                  </div>
-                  
-                  {newPrescription.medicines.map((med, idx) => (
-                    <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-2 p-3 bg-slate-50 rounded-lg border border-slate-100">
-                      <Input placeholder="Medicine Name" value={med.name} onChange={(e) => {
-                        const meds = [...newPrescription.medicines];
-                        meds[idx].name = e.target.value;
-                        setNewPrescription({...newPrescription, medicines: meds});
-                      }} />
-                      <Input placeholder="Dosage" value={med.dosage} onChange={(e) => {
-                        const meds = [...newPrescription.medicines];
-                        meds[idx].dosage = e.target.value;
-                        setNewPrescription({...newPrescription, medicines: meds});
-                      }} />
-                      <Input placeholder="Freq" value={med.frequency} onChange={(e) => {
-                        const meds = [...newPrescription.medicines];
-                        meds[idx].frequency = e.target.value;
-                        setNewPrescription({...newPrescription, medicines: meds});
-                      }} />
-                      <div className="flex gap-2">
-                        <Input placeholder="Duration" value={med.duration} onChange={(e) => {
-                          const meds = [...newPrescription.medicines];
-                          meds[idx].duration = e.target.value;
-                          setNewPrescription({...newPrescription, medicines: meds});
-                        }} />
-                        <Button variant="ghost" size="icon" className="h-10 w-10 text-rose-500" onClick={() => {
-                          const meds = newPrescription.medicines.filter((_, i) => i !== idx);
-                          setNewPrescription({...newPrescription, medicines: meds});
-                        }}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+            return (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left Column: Write Prescription Canvas & Forms */}
+                <Card className="lg:col-span-2 border border-slate-200/80 shadow-sm overflow-hidden bg-white">
+                  <CardHeader className="bg-slate-50/60 border-b border-slate-100 pb-4">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div>
+                        <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                          <FileText className="w-5 h-5 text-emerald-600" />
+                          Write Prescription
+                          {selectedPatientObj && (
+                            <span className="text-emerald-700 font-semibold text-sm">
+                              - {selectedPatientObj.name}
+                            </span>
+                          )}
+                        </CardTitle>
+                        <CardDescription className="text-xs text-slate-500">
+                          Create, draw findings, and print medical prescriptions.
+                        </CardDescription>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="w-52">
+                          <Label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Select Patient</Label>
+                          <Select 
+                            value={newPrescription.patientId} 
+                            onValueChange={(val) => {
+                              const p = MOCK_PATIENTS.find(pt => pt.id === val);
+                              setNewPrescription(prev => ({
+                                ...prev,
+                                patientId: val,
+                                allergies: p?.allergies ? (Array.isArray(p.allergies) ? p.allergies.join(', ') : p.allergies) : (p as any)?.known_allergies || prev.allergies,
+                                pastHistory: p?.pastHistory || (p as any)?.medical_history || prev.pastHistory
+                              }));
+                            }}
+                          >
+                            <SelectTrigger className="h-9 text-xs bg-white border-slate-200">
+                              <SelectValue placeholder="Select Patient..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {MOCK_PATIENTS.map(p => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.name} ({p.mrn || p.id})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </CardHeader>
 
-                <div className="space-y-2">
-                  <Label>Additional Notes</Label>
-                  <Input value={newPrescription.notes} onChange={(e) => setNewPrescription({...newPrescription, notes: e.target.value})} />
-                </div>
+                  <CardContent className="p-5 space-y-6">
+                    {/* Doctor & Date Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-slate-700">Doctor</Label>
+                        <Select 
+                          value={newPrescription.doctorId} 
+                          onValueChange={(v) => setNewPrescription(prev => ({ ...prev, doctorId: v }))}
+                        >
+                          <SelectTrigger className="bg-white text-xs h-10 border-slate-200">
+                            <SelectValue placeholder="Select doctor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {users.filter(u => u.role === 'DOCTOR' || u.role === 'SUPER_ADMIN' || u.role === 'ADMIN').map(u => (
+                              <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setNewPrescription({
-                    patientId: '', doctorId: '', diagnosis: '', medicines: [{ name: '', dosage: '', frequency: '', duration: '' }], notes: ''
-                  })}>Reset</Button>
-                  <Button className="bg-medical-blue" onClick={handleSavePrescription}>Save Prescription</Button>
-                </div>
-              </CardContent>
-            </Card>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-slate-700">Date</Label>
+                        <Input 
+                          type="date"
+                          value={newPrescription.date} 
+                          onChange={(e) => setNewPrescription(prev => ({ ...prev, date: e.target.value }))}
+                          className="bg-white h-10 text-xs border-slate-200"
+                        />
+                      </div>
+                    </div>
 
-            <Card className="border-none shadow-sm">
-              <CardHeader>
-                <CardTitle>Recent Prescriptions</CardTitle>
-                <CardDescription>Print saved prescriptions.</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <ScrollArea className="h-[400px]">
-                  <div className="p-4 space-y-3">
-                    {prescriptions.map((pres) => {
-                      const p = MOCK_PATIENTS.find(pat => pat.id === pres.patientId);
-                      return (
-                        <div key={pres.id} className="p-3 bg-white border rounded-lg flex justify-between items-center shadow-sm">
+                    {/* Prescription Templates Section */}
+                    <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-emerald-700" />
                           <div>
-                            <p className="text-sm font-bold">{p?.name}</p>
-                            <p className="text-[10px] text-muted-foreground">{pres.date}</p>
+                            <span className="font-extrabold text-xs uppercase tracking-wider text-emerald-900 block">
+                              PRESCRIPTION TEMPLATES
+                            </span>
+                            <span className="text-[10px] text-emerald-700 block">
+                              Quick-load pre-filled clinical profiles & formulas
+                            </span>
                           </div>
-                          <Button size="icon" variant="ghost" onClick={() => printPrescription(pres)}>
-                            <Printer className="w-4 h-4" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 text-xs font-bold text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100/60"
+                            onClick={() => {
+                              toast.info(`Managing ${prescriptionTemplates.length} saved prescription templates.`);
+                            }}
+                          >
+                            Manage ({prescriptionTemplates.length})
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-xs gap-1 border-emerald-300 text-emerald-800 hover:bg-emerald-100 bg-white shadow-2xs"
+                            onClick={handleSaveCurrentAsTemplate}
+                          >
+                            <Save className="w-3 h-3" />
+                            Save Current
                           </Button>
                         </div>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-2">
+                        <Select value={selectedTemplateId} onValueChange={handleApplyTemplate}>
+                          <SelectTrigger className="bg-white border-emerald-200 text-xs h-9">
+                            <SelectValue placeholder="-- Select Prescription Template --" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {prescriptionTemplates.map((tmpl: any) => (
+                              <SelectItem key={tmpl.id} value={tmpl.id}>
+                                {tmpl.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Medicines Section */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <Label className="text-sm font-extrabold text-slate-800">Medicines</Label>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          className="h-8 text-xs gap-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50 bg-white" 
+                          onClick={handleAddMedicine}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add Medicine
+                        </Button>
+                      </div>
+
+                      <div className="space-y-2 bg-slate-50/70 p-3 rounded-xl border border-slate-200/60">
+                        <div className="grid grid-cols-12 gap-2 px-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          <div className="col-span-5">MEDICINE NAME</div>
+                          <div className="col-span-2">DOSAGE</div>
+                          <div className="col-span-2">FREQUENCY</div>
+                          <div className="col-span-2">DURATION</div>
+                          <div className="col-span-1 text-center">ACTION</div>
+                        </div>
+
+                        {newPrescription.medicines.map((med, idx) => (
+                          <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded-lg border border-slate-200/80 shadow-2xs">
+                            <div className="col-span-5">
+                              <Input 
+                                placeholder="e.g. Paracetamol" 
+                                value={med.name} 
+                                onChange={(e) => {
+                                  const meds = [...newPrescription.medicines];
+                                  meds[idx].name = e.target.value;
+                                  setNewPrescription(prev => ({ ...prev, medicines: meds }));
+                                }} 
+                                className="h-9 text-xs bg-white"
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <Input 
+                                placeholder="500mg" 
+                                value={med.dosage} 
+                                onChange={(e) => {
+                                  const meds = [...newPrescription.medicines];
+                                  meds[idx].dosage = e.target.value;
+                                  setNewPrescription(prev => ({ ...prev, medicines: meds }));
+                                }} 
+                                className="h-9 text-xs bg-white"
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <Input 
+                                placeholder="1-0-1" 
+                                value={med.frequency} 
+                                onChange={(e) => {
+                                  const meds = [...newPrescription.medicines];
+                                  meds[idx].frequency = e.target.value;
+                                  setNewPrescription(prev => ({ ...prev, medicines: meds }));
+                                }} 
+                                className="h-9 text-xs bg-white"
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <Input 
+                                placeholder="5 days" 
+                                value={med.duration} 
+                                onChange={(e) => {
+                                  const meds = [...newPrescription.medicines];
+                                  meds[idx].duration = e.target.value;
+                                  setNewPrescription(prev => ({ ...prev, medicines: meds }));
+                                }} 
+                                className="h-9 text-xs bg-white"
+                              />
+                            </div>
+                            <div className="col-span-1 flex justify-center">
+                              <Button 
+                                type="button" 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-rose-500 hover:text-rose-700 hover:bg-rose-50" 
+                                onClick={() => {
+                                  const meds = newPrescription.medicines.filter((_, i) => i !== idx);
+                                  setNewPrescription(prev => ({ ...prev, medicines: meds.length ? meds : [{ name: '', dosage: '', frequency: '', duration: '' }] }));
+                                }}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Clinical Details & Physical Exam */}
+                    <div className="space-y-3 pt-2">
+                      <div className="border-b border-slate-100 pb-1.5">
+                        <span className="font-extrabold text-xs uppercase tracking-wider text-slate-700">
+                          CLINICAL DETAILS & PHYSICAL EXAM
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-bold text-amber-800 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />
+                            Allergies & Drug Sensitivities
+                          </Label>
+                          <textarea 
+                            placeholder="e.g. Penicillin, Sulfa drugs, No known drug allergies (NKDA)..." 
+                            value={newPrescription.allergies}
+                            onChange={(e) => setNewPrescription(prev => ({ ...prev, allergies: e.target.value }))}
+                            rows={2}
+                            className="flex w-full rounded-md border border-amber-300 bg-amber-50/20 px-3 py-1.5 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 min-h-[42px] resize-y"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-bold text-slate-700">
+                            Past Medical History / Previous Treatments
+                          </Label>
+                          <textarea 
+                            placeholder="e.g. Known hypertensive for 5 years, Type-2 DM..." 
+                            value={newPrescription.pastHistory}
+                            onChange={(e) => setNewPrescription(prev => ({ ...prev, pastHistory: e.target.value }))}
+                            rows={2}
+                            className="flex w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 min-h-[42px] resize-y"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-bold text-slate-700">
+                            Diagnosis / Clinical Impression
+                          </Label>
+                          <Input 
+                            placeholder="e.g. GERD, Acute Gastroenteritis..." 
+                            value={newPrescription.diagnosis}
+                            onChange={(e) => setNewPrescription(prev => ({ ...prev, diagnosis: e.target.value }))}
+                            className="bg-white text-xs h-9"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-bold text-slate-700">
+                            Advice / General Remarks
+                          </Label>
+                          <textarea 
+                            placeholder="e.g. Avoid spicy food, walk after meals..." 
+                            value={newPrescription.advice}
+                            onChange={(e) => setNewPrescription(prev => ({ ...prev, advice: e.target.value }))}
+                            rows={2}
+                            className="flex w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 min-h-[42px] resize-y"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Clinical Sketchpad / Diagram Canvas */}
+                    <div className="space-y-2 bg-slate-50 border border-slate-200/80 rounded-xl p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col">
+                          <Label className="text-xs font-bold text-slate-700">Clinical Sketchpad / Diagram</Label>
+                          <span className="text-[10px] text-slate-500">Draw simple lines/sketch of findings on the canvas if needed</span>
+                        </div>
+
+                        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-1">
+                          <Button 
+                            type="button"
+                            variant={drawMode === 'pen' ? 'default' : 'ghost'} 
+                            size="sm" 
+                            onClick={() => setDrawMode('pen')}
+                            className="h-7 px-2.5 text-xs gap-1"
+                          >
+                            <Paintbrush className="w-3.5 h-3.5" />
+                            Pen
+                          </Button>
+                          <Button 
+                            type="button"
+                            variant={drawMode === 'eraser' ? 'default' : 'ghost'} 
+                            size="sm" 
+                            onClick={() => setDrawMode('eraser')}
+                            className="h-7 px-2.5 text-xs gap-1"
+                          >
+                            <Eraser className="w-3.5 h-3.5" />
+                            Eraser
+                          </Button>
+                          <Button 
+                            type="button"
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={clearCanvas}
+                            className="h-7 w-7 text-rose-500"
+                            title="Clear Sketchpad"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 items-center justify-between py-1 border-b border-slate-200/60 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-500 font-semibold">Pen Color:</span>
+                          <div className="flex items-center gap-1.5">
+                            {['#1d4ed8', '#dc2626', '#059669', '#000000'].map(color => (
+                              <button
+                                key={color}
+                                type="button"
+                                onClick={() => {
+                                  setPenColor(color);
+                                  setDrawMode('pen');
+                                }}
+                                className={`w-4 h-4 rounded-full border transition ${penColor === color && drawMode === 'pen' ? 'ring-2 ring-offset-1 ring-slate-400 border-transparent scale-110' : 'border-slate-300'}`}
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-500 font-semibold">Width:</span>
+                          <input
+                            type="range"
+                            min="1"
+                            max="10"
+                            value={lineWidth}
+                            onChange={(e) => setLineWidth(Number(e.target.value))}
+                            className="w-16 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-700"
+                          />
+                          <span className="text-[10px] font-mono text-slate-600">{lineWidth}px</span>
+                        </div>
+                      </div>
+
+                      <div className="relative border-2 border-dashed border-slate-300 rounded-lg overflow-hidden bg-white shadow-inner flex justify-center">
+                        <canvas
+                          ref={canvasRef}
+                          width={600}
+                          height={200}
+                          onMouseDown={startDrawing}
+                          onMouseMove={draw}
+                          onMouseUp={stopDrawing}
+                          onMouseLeave={stopDrawing}
+                          onTouchStart={startDrawing}
+                          onTouchMove={draw}
+                          onTouchEnd={stopDrawing}
+                          className="w-full max-w-full h-[200px] bg-transparent block touch-none cursor-crosshair"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Patient Vitals / Measurements Section */}
+                    <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/80 space-y-3">
+                      <div className="flex items-center gap-2 border-b border-slate-200 pb-1.5 mb-1">
+                        <span className="font-extrabold text-xs uppercase text-slate-700 tracking-wider">
+                          PATIENT VITALS / MEASUREMENTS
+                        </span>
+                        <Badge variant="outline" className="text-[9px] text-emerald-600 bg-emerald-50 border-emerald-200 font-bold uppercase py-0 px-1.5 h-4">
+                          VITALS OPTION
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-slate-500 uppercase font-semibold">BP (MMHG)</Label>
+                          <Input 
+                            placeholder="120/80" 
+                            value={newPrescription.vitals.bp} 
+                            onChange={(e) => setNewPrescription(prev => ({
+                              ...prev,
+                              vitals: { ...prev.vitals, bp: e.target.value }
+                            }))}
+                            className="h-9 bg-white text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-slate-500 uppercase font-semibold">PULSE (/MIN)</Label>
+                          <Input 
+                            placeholder="72" 
+                            value={newPrescription.vitals.pulse} 
+                            onChange={(e) => setNewPrescription(prev => ({
+                              ...prev,
+                              vitals: { ...prev.vitals, pulse: e.target.value }
+                            }))}
+                            className="h-9 bg-white text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-slate-500 uppercase font-semibold">TEMP (°F)</Label>
+                          <Input 
+                            placeholder="98.6" 
+                            value={newPrescription.vitals.temp} 
+                            onChange={(e) => setNewPrescription(prev => ({
+                              ...prev,
+                              vitals: { ...prev.vitals, temp: e.target.value }
+                            }))}
+                            className="h-9 bg-white text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-slate-500 uppercase font-semibold">SPO2 (%)</Label>
+                          <Input 
+                            placeholder="98" 
+                            value={newPrescription.vitals.spo2} 
+                            onChange={(e) => setNewPrescription(prev => ({
+                              ...prev,
+                              vitals: { ...prev.vitals, spo2: e.target.value }
+                            }))}
+                            className="h-9 bg-white text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-slate-500 uppercase font-semibold">WEIGHT (KG)</Label>
+                          <Input 
+                            placeholder="65" 
+                            value={newPrescription.vitals.weight} 
+                            onChange={(e) => setNewPrescription(prev => ({
+                              ...prev,
+                              vitals: { ...prev.vitals, weight: e.target.value }
+                            }))}
+                            className="h-9 bg-white text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-slate-500 uppercase font-semibold">RESP RATE (/MIN)</Label>
+                          <Input 
+                            placeholder="18" 
+                            value={newPrescription.vitals.rr} 
+                            onChange={(e) => setNewPrescription(prev => ({
+                              ...prev,
+                              vitals: { ...prev.vitals, rr: e.target.value }
+                            }))}
+                            className="h-9 bg-white text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-slate-500 uppercase font-semibold">CBS</Label>
+                          <Input 
+                            placeholder="e.g. S1 S2 heard" 
+                            value={newPrescription.vitals.cbs} 
+                            onChange={(e) => setNewPrescription(prev => ({
+                              ...prev,
+                              vitals: { ...prev.vitals, cbs: e.target.value }
+                            }))}
+                            className="h-9 bg-white text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-slate-500 uppercase font-semibold">RS</Label>
+                          <Input 
+                            placeholder="e.g. Bilateral clear" 
+                            value={newPrescription.vitals.rs} 
+                            onChange={(e) => setNewPrescription(prev => ({
+                              ...prev,
+                              vitals: { ...prev.vitals, rs: e.target.value }
+                            }))}
+                            className="h-9 bg-white text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-slate-500 uppercase font-semibold">CNS</Label>
+                          <Input 
+                            placeholder="e.g. Conscious, oriented" 
+                            value={newPrescription.vitals.cns} 
+                            onChange={(e) => setNewPrescription(prev => ({
+                              ...prev,
+                              vitals: { ...prev.vitals, cns: e.target.value }
+                            }))}
+                            className="h-9 bg-white text-xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Form Actions */}
+                    <div className="flex justify-end gap-3 pt-2">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => {
+                          clearCanvas();
+                          setNewPrescription({
+                            patientId: MOCK_PATIENTS[0]?.id || '',
+                            doctorId: currentUser?.id || users[0]?.id || '',
+                            date: new Date().toISOString().split('T')[0],
+                            diagnosis: '',
+                            allergies: '',
+                            pastHistory: '',
+                            advice: '',
+                            notes: '',
+                            medicines: [{ name: '', dosage: '', frequency: '', duration: '' }],
+                            vitals: { bp: '', pulse: '', temp: '', spo2: '', weight: '', rr: '', cbs: '', rs: '', cns: '' },
+                            drawing: ''
+                          });
+                          setSelectedTemplateId('');
+                        }}
+                      >
+                        Reset
+                      </Button>
+                      <Button className="bg-medical-blue gap-2" onClick={handleSavePrescription}>
+                        <Printer className="w-4 h-4" />
+                        Save & Print Prescription
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Right Column: Clinical History & Patient Details */}
+                <div className="space-y-4">
+                  <Card className="border border-slate-200/80 shadow-sm bg-white overflow-hidden">
+                    <CardHeader className="bg-slate-50/60 border-b border-slate-100 pb-3 flex flex-row items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <History className="w-4 h-4 text-emerald-600" />
+                        <CardTitle className="text-sm font-bold text-slate-800">CLINICAL HISTORY</CardTitle>
+                      </div>
+                      <Button variant="outline" size="sm" className="h-6 text-[10px] font-bold text-amber-700 bg-amber-50 border-amber-200">
+                        PAST HISTORY LOG
+                      </Button>
+                    </CardHeader>
+
+                    <CardContent className="p-4 space-y-4">
+                      {/* Selected Patient Info Card */}
+                      {selectedPatientObj ? (
+                        <div className="bg-amber-50/30 border border-amber-200/60 rounded-xl p-3 flex items-center gap-3">
+                          <Avatar className="h-10 w-10 border border-amber-300">
+                            <AvatarFallback className="bg-amber-100 text-amber-800 font-bold text-sm">
+                              {selectedPatientObj.name?.charAt(0) || 'P'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-extrabold text-sm text-slate-900 truncate">
+                                {selectedPatientObj.name}
+                              </span>
+                              <Badge variant="outline" className="text-[9px] bg-slate-100 text-slate-600 font-mono py-0 px-1">
+                                {selectedPatientObj.mrn || selectedPatientObj.id}
+                              </Badge>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-0.5">
+                              {selectedPatientObj.age ? `${selectedPatientObj.age}Y` : ''} 
+                              {selectedPatientObj.gender ? ` • ${selectedPatientObj.gender.toUpperCase()}` : ''} 
+                              {selectedPatientObj.bloodGroup ? ` • BLOOD: ${selectedPatientObj.bloodGroup}` : ' • BLOOD: N/A'}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-slate-50 border border-dashed border-slate-200 rounded-xl p-3 text-center">
+                          <p className="text-xs text-slate-500 font-medium">Select a patient above to view history</p>
+                        </div>
+                      )}
+
+                      {/* Sidebar Tabs */}
+                      <div className="flex items-center gap-1 p-1 bg-slate-100/80 rounded-lg text-xs">
+                        <button className="flex-1 py-1 px-2 rounded-md bg-white font-bold text-slate-800 shadow-2xs text-[11px]">
+                          Rx ({patientPrescriptions.length})
+                        </button>
+                        <button className="flex-1 py-1 px-2 rounded-md font-semibold text-slate-500 hover:text-slate-700 text-[11px]">
+                          Vitals ({selectedPatientObj?.vitals ? 1 : 0})
+                        </button>
+                        <button className="flex-1 py-1 px-2 rounded-md font-semibold text-slate-500 hover:text-slate-700 text-[11px]">
+                          Notes (0)
+                        </button>
+                        <button className="flex-1 py-1 px-2 rounded-md font-semibold text-slate-500 hover:text-slate-700 text-[11px]">
+                          Lab (0)
+                        </button>
+                      </div>
+
+                      {/* Past Prescriptions List */}
+                      <ScrollArea className="h-[460px]">
+                        <div className="space-y-3 pr-1">
+                          {patientPrescriptions.length > 0 ? (
+                            patientPrescriptions.map((pres) => {
+                              const doc = users.find(u => u.id === pres.doctorId);
+                              return (
+                                <div key={pres.id} className="p-3 bg-white border border-slate-200/80 rounded-xl shadow-2xs hover:border-emerald-300 transition-all flex items-center justify-between gap-2">
+                                  <div>
+                                    <p className="text-xs font-bold text-slate-800">
+                                      {pres.date || 'Recent'}
+                                    </p>
+                                    <p className="text-[11px] font-semibold text-slate-600 mt-0.5">
+                                      {doc?.name || 'Dr. Anirudh Tiwari'}
+                                    </p>
+                                    {pres.diagnosis && (
+                                      <p className="text-[10px] text-slate-500 truncate max-w-[180px] mt-1">
+                                        Dx: {pres.diagnosis}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <Button 
+                                    size="icon" 
+                                    variant="outline" 
+                                    className="h-8 w-8 text-emerald-700 border-emerald-200 hover:bg-emerald-50 shrink-0" 
+                                    onClick={() => printPrescription(pres)}
+                                  >
+                                    <Printer className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="py-8 text-center text-slate-400 text-xs">
+                              No prior prescriptions found for this selection.
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            );
+          })()}
         </TabsContent>
 
         {currentUser?.role === 'SUPER_ADMIN' && (
