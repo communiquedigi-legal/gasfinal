@@ -174,6 +174,29 @@ export function ICUBedsideMonitor({ patient, vitals }: { patient: any; vitals: a
         </div>
       </div>
 
+      <div className="grid grid-cols-5 gap-2 pt-2 border-t border-slate-800 text-[10px]">
+        <div className="bg-[#111827] rounded-lg p-1.5 text-center">
+          <span className="text-slate-400 block font-bold text-[9px]">WT (kg)</span>
+          <span className="font-extrabold text-slate-200 text-xs">{vitals?.weight || '65'}</span>
+        </div>
+        <div className="bg-[#111827] rounded-lg p-1.5 text-center">
+          <span className="text-slate-400 block font-bold text-[9px]">RR (/min)</span>
+          <span className="font-extrabold text-slate-200 text-xs">{vitals?.rr || '18'}</span>
+        </div>
+        <div className="bg-[#111827] rounded-lg p-1.5 text-center">
+          <span className="text-slate-400 block font-bold text-[9px]">CBS</span>
+          <span className="font-extrabold text-slate-200 text-xs truncate block">{vitals?.cbs || 'Normal'}</span>
+        </div>
+        <div className="bg-[#111827] rounded-lg p-1.5 text-center">
+          <span className="text-slate-400 block font-bold text-[9px]">RS</span>
+          <span className="font-extrabold text-slate-200 text-xs truncate block">{vitals?.rs || 'Clear'}</span>
+        </div>
+        <div className="bg-[#111827] rounded-lg p-1.5 text-center">
+          <span className="text-slate-400 block font-bold text-[9px]">CNS</span>
+          <span className="font-extrabold text-slate-200 text-xs truncate block">{vitals?.cns || 'Oriented'}</span>
+        </div>
+      </div>
+
       <div className="relative border border-slate-800 rounded-xl bg-[#030712] overflow-hidden h-[160px] p-1 shadow-inner">
         <canvas ref={canvasRef} width="450" height="150" className="w-full h-full block opacity-90" />
         <div className="absolute top-2.5 left-3 text-[9px] font-black text-[#22c55e] bg-[#030712]/80 px-2 py-0.5 rounded-full border border-green-950 shadow-sm uppercase">ECG Lead II</div>
@@ -220,7 +243,7 @@ export default function NursingStation() {
   const [isShiftDialogOpen, setIsShiftDialogOpen] = useState(false);
   const [isAdmitDialogOpen, setIsAdmitDialogOpen] = useState(false);
 
-  const [newVitals, setNewVitals] = useState({ bp: '', pulse: '', temp: '', spo2: '' });
+  const [newVitals, setNewVitals] = useState({ bp: '', pulse: '', temp: '', spo2: '', weight: '', rr: '', cbs: '', rs: '', cns: '' });
   const [newTask, setNewTask] = useState({ description: '', priority: 'Low', dueTime: '', patientId: '', type: 'Monitoring', nurseId: '' });
   const [newShift, setNewShift] = useState({ nurseId: '', shiftType: 'Morning', ward: 'General Ward A' });
 
@@ -359,10 +382,15 @@ export default function NursingStation() {
     const payload = {
       patient_id: selectedPatientId,
       patientId: selectedPatientId,
-      bp: newVitals.bp,
-      pulse: pulseNum,
+      bp: newVitals.bp || '120/80',
+      pulse: pulseNum || 72,
       temp: newVitals.temp || '98.6',
-      spo2: spo2Num,
+      spo2: spo2Num || 98,
+      weight: newVitals.weight || '65',
+      rr: newVitals.rr || '18',
+      cbs: newVitals.cbs || 'Normal',
+      rs: newVitals.rs || 'Bilateral Clear',
+      cns: newVitals.cns || 'Conscious',
       recorded_at: new Date().toISOString()
     };
 
@@ -370,7 +398,7 @@ export default function NursingStation() {
     if (result) {
       toast.success('Patient vitals logged successfully');
       setIsVitalsDialogOpen(false);
-      setNewVitals({ bp: '', pulse: '', temp: '', spo2: '' });
+      setNewVitals({ bp: '', pulse: '', temp: '', spo2: '', weight: '', rr: '', cbs: '', rs: '', cns: '' });
       fetchData();
     } else {
       toast.error('Failed to update patient vitals');
@@ -1059,10 +1087,40 @@ export default function NursingStation() {
 
           {/* ICU Bedside Monitor & Trend Graph Panel */}
           {selectedPatient && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* Animated Monitor */}
-              <ICUBedsideMonitor patient={selectedPatient} vitals={selectedVitals} />
+            <div className="space-y-4">
+              <div className="flex items-center justify-between bg-slate-900 text-white px-5 py-3 rounded-2xl">
+                <div className="flex items-center gap-3">
+                  <Activity className="w-5 h-5 text-emerald-400" />
+                  <div>
+                    <h3 className="font-extrabold text-sm">{selectedPatient.name}</h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase">{selectedPatient.bed || 'ICU Bed'} • Age: {selectedPatient.age || 45} yrs</p>
+                  </div>
+                </div>
+                <Button 
+                  onClick={() => {
+                    setNewVitals({
+                      bp: selectedVitals?.bp || '',
+                      pulse: selectedVitals?.pulse ? String(selectedVitals.pulse) : '',
+                      temp: selectedVitals?.temp ? String(selectedVitals.temp) : '',
+                      spo2: selectedVitals?.spo2 ? String(selectedVitals.spo2) : '',
+                      weight: selectedVitals?.weight ? String(selectedVitals.weight) : '',
+                      rr: selectedVitals?.rr ? String(selectedVitals.rr) : '',
+                      cbs: selectedVitals?.cbs || '',
+                      rs: selectedVitals?.rs || '',
+                      cns: selectedVitals?.cns || ''
+                    });
+                    setIsVitalsDialogOpen(true);
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-2 rounded-xl"
+                >
+                  <Activity className="w-3.5 h-3.5" />
+                  Record Vitals
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Animated Monitor */}
+                <ICUBedsideMonitor patient={selectedPatient} vitals={selectedVitals} />
 
               {/* Trend graph for selected patient */}
               <Card className={`rounded-3xl border-none shadow-md overflow-hidden ${isTVMode ? 'bg-[#111827] border border-slate-800' : 'bg-white'}`}>
@@ -1107,6 +1165,7 @@ export default function NursingStation() {
                 </CardContent>
               </Card>
 
+              </div>
             </div>
           )}
 
@@ -1606,6 +1665,112 @@ export default function NursingStation() {
         </div>
 
       </div>
+
+      {/* Record Patient Vitals Dialog */}
+      <Dialog open={isVitalsDialogOpen} onOpenChange={setIsVitalsDialogOpen}>
+        <DialogContent className="sm:max-w-[550px] rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black flex items-center gap-2">
+              <Activity className="w-5 h-5 text-emerald-600" />
+              Patient Vitals & Measurements Grid
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-4">
+            <p className="text-xs text-slate-500 font-medium">
+              Record comprehensive clinical vitals for <span className="font-bold text-slate-800">{selectedPatient?.name}</span>.
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-[10px] text-slate-500 uppercase font-bold">BP (mmHg)</Label>
+                <Input 
+                  placeholder="e.g. 120/80" 
+                  value={newVitals.bp} 
+                  onChange={(e) => setNewVitals({ ...newVitals, bp: e.target.value })}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-slate-500 uppercase font-bold">Pulse (/min)</Label>
+                <Input 
+                  placeholder="e.g. 72" 
+                  value={newVitals.pulse} 
+                  onChange={(e) => setNewVitals({ ...newVitals, pulse: e.target.value })}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-slate-500 uppercase font-bold">Temp (°F)</Label>
+                <Input 
+                  placeholder="e.g. 98.6" 
+                  value={newVitals.temp} 
+                  onChange={(e) => setNewVitals({ ...newVitals, temp: e.target.value })}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-slate-500 uppercase font-bold">SpO2 (%)</Label>
+                <Input 
+                  placeholder="e.g. 98" 
+                  value={newVitals.spo2} 
+                  onChange={(e) => setNewVitals({ ...newVitals, spo2: e.target.value })}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-slate-500 uppercase font-bold">Weight (kg)</Label>
+                <Input 
+                  placeholder="e.g. 65" 
+                  value={newVitals.weight} 
+                  onChange={(e) => setNewVitals({ ...newVitals, weight: e.target.value })}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-slate-500 uppercase font-bold">Resp Rate (/min)</Label>
+                <Input 
+                  placeholder="e.g. 18" 
+                  value={newVitals.rr} 
+                  onChange={(e) => setNewVitals({ ...newVitals, rr: e.target.value })}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-slate-500 uppercase font-bold">CBS</Label>
+                <Input 
+                  placeholder="e.g. S1 S2 heard" 
+                  value={newVitals.cbs} 
+                  onChange={(e) => setNewVitals({ ...newVitals, cbs: e.target.value })}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-slate-500 uppercase font-bold">RS</Label>
+                <Input 
+                  placeholder="e.g. Bilateral clear" 
+                  value={newVitals.rs} 
+                  onChange={(e) => setNewVitals({ ...newVitals, rs: e.target.value })}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-slate-500 uppercase font-bold">CNS</Label>
+                <Input 
+                  placeholder="e.g. Conscious, oriented" 
+                  value={newVitals.cns} 
+                  onChange={(e) => setNewVitals({ ...newVitals, cns: e.target.value })}
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" className="rounded-xl text-xs" onClick={() => setIsVitalsDialogOpen(false)}>Cancel</Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs" onClick={handleUpdateVitals}>
+              Save Vitals Record
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

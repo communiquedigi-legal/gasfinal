@@ -1389,22 +1389,42 @@ View full details at: ${shareUrl}
                   {vitals.length > 0 ? 'Updated' : 'Default'}
                 </Badge>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">BP</p>
-                  <p className="text-base font-black text-slate-800">{vitals[0]?.bp || '120/80'}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">BP (mmHg)</p>
+                  <p className="text-sm font-black text-slate-800">{vitals[0]?.bp || '120/80'}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Pulse</p>
-                  <p className="text-base font-black text-slate-800">{vitals[0]?.pulse || '78'} bpm</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Pulse (/min)</p>
+                  <p className="text-sm font-black text-slate-800">{vitals[0]?.pulse || '78'}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Temp</p>
-                  <p className="text-base font-black text-slate-800">{vitals[0]?.temp || '98.6'} °F</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Temp (°F)</p>
+                  <p className="text-sm font-black text-slate-800">{vitals[0]?.temp || '98.6'}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">SpO2</p>
-                  <p className="text-base font-black text-slate-800">{vitals[0]?.spo2 || '98'} %</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">SpO2 (%)</p>
+                  <p className="text-sm font-black text-slate-800">{vitals[0]?.spo2 || '98'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Weight (kg)</p>
+                  <p className="text-sm font-black text-slate-800">{vitals[0]?.weight || '65'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Resp Rate (/min)</p>
+                  <p className="text-sm font-black text-slate-800">{vitals[0]?.rr || '18'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">CBS</p>
+                  <p className="text-xs font-bold text-slate-800 truncate">{vitals[0]?.cbs || 'Normal'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">RS</p>
+                  <p className="text-xs font-bold text-slate-800 truncate">{vitals[0]?.rs || 'Bilateral Clear'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">CNS</p>
+                  <p className="text-xs font-bold text-slate-800 truncate">{vitals[0]?.cns || 'Conscious'}</p>
                 </div>
               </div>
             </CardContent>
@@ -2496,6 +2516,42 @@ View full details at: ${shareUrl}
                     onChange={(e) => setNewPrescription({
                       ...newPrescription,
                       vitals: { ...(newPrescription.vitals || {}), rr: e.target.value }
+                    })}
+                    className="h-9 bg-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-slate-500 uppercase font-semibold">CBS</Label>
+                  <Input 
+                    placeholder="e.g. S1 S2 heard" 
+                    value={newPrescription.vitals?.cbs || ''} 
+                    onChange={(e) => setNewPrescription({
+                      ...newPrescription,
+                      vitals: { ...(newPrescription.vitals || {}), cbs: e.target.value }
+                    })}
+                    className="h-9 bg-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-slate-500 uppercase font-semibold">RS</Label>
+                  <Input 
+                    placeholder="e.g. Bilateral clear" 
+                    value={newPrescription.vitals?.rs || ''} 
+                    onChange={(e) => setNewPrescription({
+                      ...newPrescription,
+                      vitals: { ...(newPrescription.vitals || {}), rs: e.target.value }
+                    })}
+                    className="h-9 bg-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-slate-500 uppercase font-semibold">CNS</Label>
+                  <Input 
+                    placeholder="e.g. Conscious, oriented" 
+                    value={newPrescription.vitals?.cns || ''} 
+                    onChange={(e) => setNewPrescription({
+                      ...newPrescription,
+                      vitals: { ...(newPrescription.vitals || {}), cns: e.target.value }
                     })}
                     className="h-9 bg-white"
                   />
