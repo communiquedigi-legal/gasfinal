@@ -25,6 +25,8 @@ import {
   Receipt,
   User,
   AlertCircle,
+  AlertTriangle,
+  FileSpreadsheet,
   Loader2,
   Building,
   Layers,
