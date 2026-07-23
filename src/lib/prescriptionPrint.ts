@@ -561,25 +561,53 @@ export function getPrescriptionPrintHtml(
                 <div style="position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, #1d4ed8 0%, #3b82f6 50%, #1d4ed8 100%);"></div>
                 
                 <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: 4px;">
-                  <!-- Left: Circular Logo -->
+                  <!-- Left: Neo GastroPlus Hospital Logo (Image 20 style) -->
                   <div style="flex-shrink: 0; margin-right: 15px;">
-                    <svg viewBox="0 0 100 100" style="width: 72px; height: 72px;">
-                      <circle cx="50" cy="50" r="46" fill="none" stroke="#1d4ed8" stroke-width="3.5" />
-                      <circle cx="50" cy="50" r="41" fill="none" stroke="#ef4444" stroke-width="1.5" />
-                      <circle cx="50" cy="50" r="40" fill="#ffffff" />
-                      <path d="M44 28 H56 V72 H44 Z" fill="#ef4444" opacity="0.1" />
-                      <path d="M28 44 H72 V56 H28 Z" fill="#ef4444" opacity="0.1" />
-                      <circle cx="50" cy="50" r="34" fill="none" stroke="#ef4444" stroke-width="1" stroke-dasharray="3,2" />
-                      <text x="50" y="53" font-family="'Plus Jakarta Sans', sans-serif" font-weight="900" font-size="22" fill="#1d4ed8" text-anchor="middle" dominant-baseline="middle" style="letter-spacing: -0.5px;">G+</text>
-                      <text x="50" y="24" font-family="'Noto Sans Devanagari', sans-serif" font-weight="700" font-size="5.5" fill="#ef4444" text-anchor="middle">न्यू गैस्ट्रो प्लस हॉस्पिटल</text>
-                      <text x="50" y="80" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="5.5" fill="#1d4ed8" text-anchor="middle">NEW GASTRO PLUS HOSPITAL</text>
+                    <svg viewBox="0 0 240 240" style="width: 88px; height: 88px; display: block; flex-shrink: 0;">
+                      <!-- Background light card -->
+                      <rect width="240" height="240" rx="22" fill="#fcfbf7" stroke="#e7e5e4" stroke-width="1.5" />
+                      
+                      <!-- Group containing stomach and golden arc -->
+                      <g transform="translate(20, 10) scale(0.82)">
+                        <!-- Stomach Outer Contour -->
+                        <path d="M 102,15 C 102,30 98,40 88,52 C 74,70 50,82 50,115 C 50,148 76,164 108,164 C 140,164 164,142 164,102 C 164,62 138,48 132,15 Z" fill="#0f766e" />
+                        
+                        <!-- Shading curve inside stomach for 3D depth -->
+                        <path d="M 96,35 C 96,50 82,64 74,80 C 68,92 65,108 70,122 C 75,136 90,148 108,148 C 128,148 144,132 146,108 C 148,84 132,64 126,35 Z" fill="#0d9488" opacity="0.35" />
+
+                        <!-- Pure White Medical Cross (+) in Top-Right Lobe -->
+                        <path d="M 120,44 H 136 V 60 H 152 V 76 H 136 V 92 H 120 V 76 H 104 V 60 H 120 Z" fill="#ffffff" />
+                        
+                        <!-- Golden Cradling Arc under stomach -->
+                        <path d="M 32,108 C 44,162 106,188 174,134 C 152,174 80,186 32,108 Z" fill="#ca8a04" />
+                        
+                        <!-- Second golden line below arc -->
+                        <path d="M 46,155 C 80,182 138,175 166,150 C 138,172 88,175 46,155 Z" fill="#d97706" opacity="0.75" />
+                      </g>
+                      
+                      <!-- Text Elements inside Logo -->
+                      <line x1="55" y1="172" x2="80" y2="172" stroke="#0f766e" stroke-width="1.2" />
+                      <text x="120" y="175" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="11" fill="#0f766e" text-anchor="middle" letter-spacing="2">NEO</text>
+                      <line x1="160" y1="172" x2="185" y2="172" stroke="#0f766e" stroke-width="1.2" />
+                      
+                      <text x="120" y="196" font-family="'Plus Jakarta Sans', sans-serif" font-weight="900" font-size="20" text-anchor="middle">
+                        <tspan fill="#0f766e">Gastro</tspan><tspan fill="#ca8a04">Plus</tspan>
+                      </text>
+                      
+                      <line x1="45" y1="210" x2="70" y2="210" stroke="#ca8a04" stroke-width="1.2" />
+                      <text x="120" y="213" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="10" fill="#ca8a04" text-anchor="middle" letter-spacing="2">HOSPITAL</text>
+                      <line x1="170" y1="210" x2="195" y2="210" stroke="#ca8a04" stroke-width="1.2" />
+                      
+                      <text x="120" y="228" font-family="'Plus Jakarta Sans', sans-serif" font-style="italic" font-weight="600" font-size="7.5" fill="#0f766e" text-anchor="middle">
+                        Advanced Digestive &amp; Surgical Care
+                      </text>
                     </svg>
                   </div>
                   
-                  <!-- Middle: Center Title -->
+                  <!-- Middle: Center Title (English Big at Top, Hindi Small Below) -->
                   <div style="flex-grow: 1; text-align: center;">
-                    <div style="font-family: 'Noto Sans Devanagari', sans-serif; font-weight: 900; font-size: 34px; color: #ef4444; text-shadow: 2px 2px 0px #fff, -2px -2px 0px #fff, 2px -2px 0px #fff, -2px 2px 0px #fff, 2px 2px 4px rgba(0,0,0,0.15); text-transform: uppercase; margin: 0; line-height: 1; letter-spacing: 0.5px;">न्यू गैस्ट्रो प्लस हॉस्पिटल</div>
-                    <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 10px; color: #1d4ed8; letter-spacing: 2px; text-transform: uppercase; margin-top: 5px; opacity: 0.9;">New Gastro Plus Hospital</div>
+                    <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 900; font-size: 30px; color: #ef4444; text-shadow: 2px 2px 0px #fff, -2px -2px 0px #fff, 2px -2px 0px #fff, -2px 2px 0px #fff, 2px 2px 4px rgba(0,0,0,0.12); text-transform: uppercase; margin: 0; line-height: 1.1; letter-spacing: 0.5px;">${hospName}</div>
+                    <div style="font-family: 'Noto Sans Devanagari', sans-serif; font-weight: 800; font-size: 15px; color: #1d4ed8; letter-spacing: 0.5px; text-transform: uppercase; margin-top: 4px;">न्यू गैस्ट्रो प्लस हॉस्पिटल</div>
                   </div>
 
                   <!-- Right: Caduceus icon -->
