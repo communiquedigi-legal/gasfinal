@@ -195,7 +195,65 @@ const generateAutoSummary = (pat: any, admissionReason: string, vitalsText: stri
   return draft;
 };
 
-const MOCK_DISCHARGE_SUMMARIES: any[] = [];
+const MOCK_DISCHARGE_SUMMARIES: any[] = [
+  {
+    id: 'disc-lama-101',
+    patientId: 'P002',
+    patient_id: 'P002',
+    patientName: 'Rajesh Sharma',
+    mrn: 'MRN-IPD-882',
+    dischargeDate: new Date(Date.now() - 86400000 * 2).toISOString(),
+    admissionDate: new Date(Date.now() - 86400000 * 5).toISOString(),
+    dischargeType: 'LAMA (Left Against Medical Advice)',
+    dischargeBy: 'Dr. A. K. Verma (Cardiologist)',
+    clinicalSummary: 'Patient admitted with acute coronary syndrome / unstable angina. Advised emergency coronary angiography & ICU monitoring. Patient & family insisted on taking discharge against medical advice due to personal preference. High risk of myocardial infarction explained.',
+    medications: 'Tab. Aspirin 75mg OD\nTab. Clopidogrel 75mg OD\nTab. Atorvastatin 40mg HS',
+    followUpDate: new Date(Date.now() + 86400000 * 3).toISOString(),
+    relativeName: 'Suresh Sharma (Brother)',
+    relativeContact: '+91 98765 12345',
+    lamaReason: 'Financial constraint & request to transfer to native city hospital',
+    riskExplained: 'Cardiac arrest, sudden death, arrhythmia risks explained in presence of witness.',
+    witnessName: 'Nurse Sunita R.',
+    mlcStatus: 'MLC-2026/8812'
+  },
+  {
+    id: 'disc-death-102',
+    patientId: 'P003',
+    patient_id: 'P003',
+    patientName: 'Ramesh Patel',
+    mrn: 'MRN-IPD-904',
+    dischargeDate: new Date(Date.now() - 86400000 * 1).toISOString(),
+    admissionDate: new Date(Date.now() - 86400000 * 7).toISOString(),
+    dischargeType: 'Deceased',
+    dischargeBy: 'Dr. S. N. Gupta (Intensivist)',
+    clinicalSummary: 'Patient admitted with severe Community Acquired Pneumonia leading to Septic Shock with Multi-Organ Dysfunction Syndrome (MODS). Refractory hypotension despite triple vasopressors and mechanical ventilation. Cardiopulmonary arrest occurred at 04:15 AM.',
+    medications: 'N/A - Patient Expired in ICU',
+    followUpDate: '',
+    timeOfDeath: '04:15 AM',
+    causeOfDeathDirect: 'Refractory Septic Shock with Multi-Organ Dysfunction Syndrome (MODS)',
+    causeOfDeathAntecedent: 'Severe Bilateral Pneumonia with Acute Respiratory Distress Syndrome (ARDS)',
+    causeOfDeathUnderlying: 'Type-2 Diabetes Mellitus with Chronic Kidney Disease Stage IV',
+    deathCertNo: 'MCCD/2026/0842',
+    bodyHandedOverTo: 'Vikram Patel (Son)',
+    bodyHandoverTime: new Date(Date.now() - 86400000 * 1 + 3600000 * 3).toISOString(),
+    policeIntimation: 'Not Required (Natural Death in ICU)',
+    mlcStatus: 'Non-MLC'
+  },
+  {
+    id: 'disc-routine-103',
+    patientId: 'P001',
+    patient_id: 'P001',
+    patientName: 'Ananya Sen',
+    mrn: 'MRN-IPD-712',
+    dischargeDate: new Date(Date.now() - 86400000 * 3).toISOString(),
+    admissionDate: new Date(Date.now() - 86400000 * 6).toISOString(),
+    dischargeType: 'Routine / Improved',
+    dischargeBy: 'Dr. Priya Nair (General Physician)',
+    clinicalSummary: 'Admitted with acute gastroenteritis with moderate dehydration. Treated with IV fluids, antibiotics, antiemetics, and supportive care. Vital parameters stable. Afebrile for 48 hours.',
+    medications: 'Tab. Ciprofloxacin 500mg BD x 5 days\nCap. ORS powder as required\nTab. Pantoprazole 40mg OD AC x 7 days',
+    followUpDate: new Date(Date.now() + 86400000 * 5).toISOString()
+  }
+];
 
 export default function IPD() {
   const navigate = useNavigate();
@@ -376,7 +434,7 @@ export default function IPD() {
   const isDeleteForbidden = false;
 
   // --- NEW WORKFLOWS STATE ---
-  const [activeTab, setActiveTab] = useState<'registration' | 'beds' | 'surgery' | 'discharge' | 'shifting'>('beds');
+  const [activeTab, setActiveTab] = useState<'registration' | 'beds' | 'surgery' | 'discharge' | 'shifting' | 'lama-death'>('beds');
 
   useEffect(() => {
     if (isDoctor && activeTab === 'registration') {
@@ -1599,6 +1657,430 @@ export default function IPD() {
     }, 500);
   };
 
+  const printLamaWaiver = (summary: any) => {
+    if (!summary) return;
+    const pat = patients.find(p => p.id === (summary.patient_id || summary.patientId)) || MOCK_PATIENTS.find(p => p.id === (summary.patient_id || summary.patientId));
+    const rawHospitalInfo = storage.get(STORAGE_KEYS.HOSPITAL_INFO, null);
+    const hospitalName = rawHospitalInfo?.name || 'NEW GASTRO PLUS HOSPITAL';
+    const hospitalSubHeader = rawHospitalInfo?.address || 'Healthcare Center';
+    const hospitalPhone = rawHospitalInfo?.phone || '+91 98765 43210';
+
+    const iframeId = 'lama-waiver-iframe-temp';
+    let iframe = document.getElementById(iframeId) as HTMLIFrameElement;
+    if (iframe) document.body.removeChild(iframe);
+    
+    iframe = document.createElement('iframe') as HTMLIFrameElement;
+    iframe.id = iframeId;
+    iframe.style.position = 'fixed';
+    iframe.style.width = '0px';
+    iframe.style.height = '0px';
+    iframe.style.border = 'none';
+    iframe.style.opacity = '0';
+    document.body.appendChild(iframe);
+    
+    const iframeDoc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!iframeDoc) return;
+
+    const waiverHtml = `
+      <html>
+        <head>
+          <title>LAMA High-Risk Waiver - ${pat?.name || 'Patient'}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+            body { font-family: 'Inter', sans-serif; margin: 35px; color: #0f172a; line-height: 1.5; }
+            .header { text-align: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px; }
+            .title { font-size: 15px; font-weight: 800; text-transform: uppercase; color: #be123c; border: 2px solid #fecdd3; background: #fff1f2; padding: 8px; margin-bottom: 20px; text-align: center; }
+            .grid { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            .grid td { border: 1px solid #cbd5e1; padding: 6px 10px; font-size: 11px; }
+            .grid td.lbl { font-weight: 700; background: #f8fafc; color: #475569; width: 25%; }
+            .clause { font-size: 11px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px; margin-bottom: 20px; text-align: justify; }
+            .sig-grid { margin-top: 50px; display: flex; justify-content: space-between; font-size: 11px; }
+            .sig-box { width: 30%; text-align: center; border-top: 1px solid #94a3b8; padding-top: 6px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0; color:#0f172a; font-size: 20px;">${hospitalName}</h2>
+            <p style="margin:2px; font-size:11px; color:#64748b;">${hospitalSubHeader} | Ph: ${hospitalPhone}</p>
+          </div>
+          <div class="title">INFORMED REFUSAL & HIGH-RISK LAMA RELEASE DECLARATION</div>
+          <table class="grid">
+            <tr>
+              <td class="lbl">Patient Name</td><td><strong>${pat?.name || 'Unknown'}</strong></td>
+              <td class="lbl">MRN / IP No.</td><td>${pat?.mrn || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td class="lbl">Age / Gender</td><td>${pat?.age || 'N/A'} Yrs / ${pat?.gender || 'N/A'}</td>
+              <td class="lbl">Discharging Clinician</td><td>${summary.dischargeBy || 'Duty Consultant'}</td>
+            </tr>
+            <tr>
+              <td class="lbl">Relative / Guardian</td><td>${summary.relativeName || 'Relative/Guardian'}</td>
+              <td class="lbl">Contact Phone</td><td>${summary.relativeContact || pat?.phone || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td class="lbl">Date & Time</td><td>${new Date(summary.dischargeDate).toLocaleString('en-IN')}</td>
+              <td class="lbl">Status</td><td style="color:#be123c; font-weight:800;">LAMA (Left Against Advice)</td>
+            </tr>
+          </table>
+
+          <div class="clause">
+            <strong style="color:#be123c; font-size:12px; display:block; margin-bottom:6px;">LEGAL WAIVER AND RESPONSIBILITY RELEASE CLAUSE:</strong>
+            I/We hereby declare that I/we am/are taking patient <strong>${pat?.name || 'the patient'}</strong> away from <strong>${hospitalName}</strong> against explicit medical advice (LAMA). 
+            The attending clinicians have explained in clear, understandable language that stopping treatment and leaving at this juncture carries extreme health risks including <strong>uncontrolled clinical deterioration, organ damage, permanent disability, or DEATH</strong>.
+            <br/><br/>
+            I/We voluntarily assume full personal and legal responsibility for all consequences resulting from this premature exit. I/we hereby release <strong>${hospitalName}</strong>, its management, consultants, and nursing staff from any liability, claims, or legal actions whatsoever.
+          </div>
+
+          <div style="font-size:11px; margin-bottom:15px;">
+            <strong>Stated Reason for LAMA:</strong> ${summary.lamaReason || 'Personal preference / request to transfer against advice.'}<br/>
+            <strong>High Risks Communicated:</strong> ${summary.riskExplained || 'Sudden cardiac event, severe sepsis, shock, respiratory depression.'}
+          </div>
+
+          <div class="sig-grid" style="margin-top:50px;">
+            <div class="sig-box">
+              <br/>Signature / Thumb impression of Patient / Relative
+              <br/><span style="font-size:9px; color:#64748b;">(Name: ${summary.relativeName || 'Relative'})</span>
+            </div>
+            <div class="sig-box">
+              <br/>Witness Signature
+              <br/><span style="font-size:9px; color:#64748b;">(Name: ${summary.witnessName || 'Hospital Witness'})</span>
+            </div>
+            <div class="sig-box">
+              <br/>Attending Clinician / Duty Doctor
+              <br/><span style="font-size:9px; color:#64748b;">(Sign & Stamp)</span>
+            </div>
+          </div>
+          <script>window.onload = () => { window.print(); };</script>
+        </body>
+      </html>
+    `;
+    iframeDoc.write(waiverHtml);
+    iframeDoc.close();
+    setTimeout(() => {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        setTimeout(() => { if (document.getElementById(iframeId)) document.body.removeChild(iframe); }, 3000);
+      }
+    }, 500);
+  };
+
+  const printDeathCertificate = (summary: any) => {
+    if (!summary) return;
+    const pat = patients.find(p => p.id === (summary.patient_id || summary.patientId)) || MOCK_PATIENTS.find(p => p.id === (summary.patient_id || summary.patientId));
+    const rawHospitalInfo = storage.get(STORAGE_KEYS.HOSPITAL_INFO, null);
+    const hospitalName = rawHospitalInfo?.name || 'NEW GASTRO PLUS HOSPITAL';
+    const hospitalSubHeader = rawHospitalInfo?.address || 'Healthcare Center';
+    const hospitalPhone = rawHospitalInfo?.phone || '+91 98765 43210';
+
+    const iframeId = 'death-cert-iframe-temp';
+    let iframe = document.getElementById(iframeId) as HTMLIFrameElement;
+    if (iframe) document.body.removeChild(iframe);
+    
+    iframe = document.createElement('iframe') as HTMLIFrameElement;
+    iframe.id = iframeId;
+    iframe.style.position = 'fixed';
+    iframe.style.width = '0px';
+    iframe.style.height = '0px';
+    iframe.style.border = 'none';
+    iframe.style.opacity = '0';
+    document.body.appendChild(iframe);
+    
+    const iframeDoc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!iframeDoc) return;
+
+    const deathHtml = `
+      <html>
+        <head>
+          <title>Medical Certificate of Cause of Death - ${pat?.name || 'Deceased'}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+            body { font-family: 'Inter', sans-serif; margin: 35px; color: #0f172a; line-height: 1.4; }
+            .header { text-align: center; border-bottom: 2px solid #0284c7; padding-bottom: 8px; margin-bottom: 15px; }
+            .cert-no { text-align: right; font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 10px; font-family: monospace; }
+            .title { font-size: 15px; font-weight: 800; text-transform: uppercase; color: #0f172a; border: 1px solid #94a3b8; background: #f8fafc; padding: 6px; margin-bottom: 15px; text-align: center; letter-spacing: 0.5px; }
+            .grid { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+            .grid td { border: 1px solid #cbd5e1; padding: 6px 10px; font-size: 11px; }
+            .grid td.lbl { font-weight: 700; background: #f1f5f9; color: #334155; width: 25%; }
+            .cause-box { border: 1px solid #cbd5e1; padding: 12px; border-radius: 4px; margin-bottom: 15px; font-size: 11px; }
+            .cause-title { font-weight: 800; color: #0284c7; text-transform: uppercase; font-size: 11px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 8px; }
+            .sig-grid { margin-top: 50px; display: flex; justify-content: space-between; font-size: 11px; }
+            .sig-box { width: 45%; text-align: center; border-top: 1px solid #94a3b8; padding-top: 6px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0; color:#0284c7; font-size: 20px;">${hospitalName}</h2>
+            <p style="margin:2px; font-size:11px; color:#64748b;">${hospitalSubHeader} | Ph: ${hospitalPhone}</p>
+          </div>
+          <div class="cert-no">Certificate No: ${summary.deathCertNo || 'MCCD/2026/0842'}</div>
+          <div class="title">MEDICAL CERTIFICATE OF CAUSE OF DEATH (MCCD - FORM 4/4A)</div>
+          
+          <table class="grid">
+            <tr>
+              <td class="lbl">Deceased Full Name</td><td><strong>${pat?.name || 'Unknown'}</strong></td>
+              <td class="lbl">MRN / Hospital ID</td><td>${pat?.mrn || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td class="lbl">Age / Sex</td><td>${pat?.age || 'N/A'} Yrs / ${pat?.gender || 'N/A'}</td>
+              <td class="lbl">Attending Physician</td><td>${summary.dischargeBy || 'Duty Medical Officer'}</td>
+            </tr>
+            <tr>
+              <td class="lbl">Date of Death</td><td><strong>${new Date(summary.dischargeDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></td>
+              <td class="lbl">Exact Time of Death</td><td><strong>${summary.timeOfDeath || '04:15 AM'}</strong></td>
+            </tr>
+            <tr>
+              <td class="lbl">MLC / Legal Status</td><td>${summary.mlcStatus || 'Non-MLC / Natural Death'}</td>
+              <td class="lbl">Body Handed Over To</td><td>${summary.bodyHandedOverTo || 'Next of Kin / Relative'}</td>
+            </tr>
+          </table>
+
+          <div class="cause-box">
+            <div class="cause-title">Part I: Clinical Sequence & Direct Cause of Death</div>
+            <p style="margin: 4px 0;"><strong>(a) Immediate Cause:</strong> ${summary.causeOfDeathDirect || summary.clinicalSummary || 'Cardiopulmonary Arrest'}</p>
+            <p style="margin: 4px 0;"><strong>(b) Antecedent Cause:</strong> ${summary.causeOfDeathAntecedent || 'Refractory Septic Shock / Respiratory Failure'}</p>
+            <p style="margin: 4px 0;"><strong>(c) Underlying Cause:</strong> ${summary.causeOfDeathUnderlying || 'Multiple Organ Dysfunction Syndrome (MODS)'}</p>
+          </div>
+
+          <div class="cause-box">
+            <div class="cause-title">Part II: Other Significant Clinical Conditions Contributing to Death</div>
+            <p style="margin:4px 0;">${summary.medications || 'Type 2 Diabetes Mellitus, Essential Hypertension, Chronic Kidney Disease'}</p>
+          </div>
+
+          <div style="font-size:10px; color:#475569; margin-top:10px; font-style:italic;">
+            * I hereby certify that the above statements regarding the cause of death are true to the best of my knowledge based on medical records and clinical attendance during the patient's hospitalization.
+          </div>
+
+          <div class="sig-grid">
+            <div class="sig-box">
+              <br/>Medical Superintendent / Registrar
+              <br/><span style="font-size:9px; color:#64748b;">(Hospital Seal & Verification)</span>
+            </div>
+            <div class="sig-box">
+              <br/>Attending Physician / Intensivist
+              <br/><span style="font-size:9px; color:#64748b;">(Signature & Medical Council Reg. No.)</span>
+            </div>
+          </div>
+          <script>window.onload = () => { window.print(); };</script>
+        </body>
+      </html>
+    `;
+    iframeDoc.write(deathHtml);
+    iframeDoc.close();
+    setTimeout(() => {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        setTimeout(() => { if (document.getElementById(iframeId)) document.body.removeChild(iframe); }, 3000);
+      }
+    }, 500);
+  };
+
+  const printBodyHandoverSlip = (summary: any) => {
+    if (!summary) return;
+    const pat = patients.find(p => p.id === (summary.patient_id || summary.patientId)) || MOCK_PATIENTS.find(p => p.id === (summary.patient_id || summary.patientId));
+    const rawHospitalInfo = storage.get(STORAGE_KEYS.HOSPITAL_INFO, null);
+    const hospitalName = rawHospitalInfo?.name || 'NEW GASTRO PLUS HOSPITAL';
+    const hospitalSubHeader = rawHospitalInfo?.address || 'Healthcare Center';
+
+    const iframeId = 'body-handover-iframe-temp';
+    let iframe = document.getElementById(iframeId) as HTMLIFrameElement;
+    if (iframe) document.body.removeChild(iframe);
+    
+    iframe = document.createElement('iframe') as HTMLIFrameElement;
+    iframe.id = iframeId;
+    iframe.style.position = 'fixed';
+    iframe.style.width = '0px';
+    iframe.style.height = '0px';
+    iframe.style.border = 'none';
+    iframe.style.opacity = '0';
+    document.body.appendChild(iframe);
+    
+    const iframeDoc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!iframeDoc) return;
+
+    const handoverHtml = `
+      <html>
+        <head>
+          <title>Mortuary Body & Belongings Handover Slip - ${pat?.name || 'Deceased'}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+            body { font-family: 'Inter', sans-serif; margin: 35px; color: #0f172a; line-height: 1.4; }
+            .header { text-align: center; border-bottom: 2px dashed #94a3b8; padding-bottom: 8px; margin-bottom: 15px; }
+            .title { font-size: 14px; font-weight: 800; text-transform: uppercase; color: #0f172a; border: 1px solid #cbd5e1; background: #f8fafc; padding: 6px; margin-bottom: 15px; text-align: center; }
+            .grid { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+            .grid td { border: 1px solid #cbd5e1; padding: 6px 10px; font-size: 11px; }
+            .grid td.lbl { font-weight: 700; background: #f1f5f9; color: #334155; width: 25%; }
+            .sig-grid { margin-top: 50px; display: flex; justify-content: space-between; font-size: 11px; }
+            .sig-box { width: 30%; text-align: center; border-top: 1px solid #94a3b8; padding-top: 6px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0; color:#0f172a; font-size: 18px;">${hospitalName}</h2>
+            <p style="margin:2px; font-size:10px; color:#64748b;">${hospitalSubHeader}</p>
+          </div>
+          <div class="title">MORTUARY BODY & PERSONAL BELONGINGS HANDOVER RECEIPT</div>
+          <table class="grid">
+            <tr>
+              <td class="lbl">Deceased Patient Name</td><td><strong>${pat?.name || 'Deceased'}</strong></td>
+              <td class="lbl">MRN / IPD No.</td><td>${pat?.mrn || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td class="lbl">Date & Time of Death</td><td>${new Date(summary.dischargeDate).toLocaleDateString('en-IN')} @ ${summary.timeOfDeath || '04:15 AM'}</td>
+              <td class="lbl">Attending Doctor</td><td>${summary.dischargeBy || 'Duty Doctor'}</td>
+            </tr>
+            <tr>
+              <td class="lbl">Receiver Name</td><td><strong>${summary.bodyHandedOverTo || 'Next of Kin'}</strong></td>
+              <td class="lbl">Govt ID Proof Type & No.</td><td>Aadhaar / Voter ID Verified</td>
+            </tr>
+            <tr>
+              <td class="lbl">Handover Date & Time</td><td>${new Date().toLocaleString('en-IN')}</td>
+              <td class="lbl">Mortuary / Ward Staff</td><td>Nurse / Security Incharge</td>
+            </tr>
+          </table>
+
+          <div style="font-size:11px; margin-bottom:15px; padding:10px; border:1px solid #e2e8f0; background:#f8fafc; border-radius:4px;">
+            <strong>Personal Belongings Inventory Handed Over:</strong><br/>
+            1. Clothes & footwear<br/>
+            2. Personal phone & wallet / cash<br/>
+            3. Wristwatch / spectacles / ring (if any)<br/>
+            <br/>
+            <em>I confirm that I have received the mortal remains of the above patient along with all personal belongings in proper condition.</em>
+          </div>
+
+          <div class="sig-grid">
+            <div class="sig-box">
+              <br/>Receiver Relative Signature
+              <br/><span style="font-size:9px; color:#64748b;">(Name: ${summary.bodyHandedOverTo || 'Relative'})</span>
+            </div>
+            <div class="sig-box">
+              <br/>Ward Nurse / Mortuary Incharge
+              <br/><span style="font-size:9px; color:#64748b;">(Sign & Date)</span>
+            </div>
+            <div class="sig-box">
+              <br/>Hospital Security Officer
+              <br/><span style="font-size:9px; color:#64748b;">(Verified Release)</span>
+            </div>
+          </div>
+          <script>window.onload = () => { window.print(); };</script>
+        </body>
+      </html>
+    `;
+    iframeDoc.write(handoverHtml);
+    iframeDoc.close();
+    setTimeout(() => {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        setTimeout(() => { if (document.getElementById(iframeId)) document.body.removeChild(iframe); }, 3000);
+      }
+    }, 500);
+  };
+
+  const printPoliceIntimation = (summary: any) => {
+    if (!summary) return;
+    const pat = patients.find(p => p.id === (summary.patient_id || summary.patientId)) || MOCK_PATIENTS.find(p => p.id === (summary.patient_id || summary.patientId));
+    const rawHospitalInfo = storage.get(STORAGE_KEYS.HOSPITAL_INFO, null);
+    const hospitalName = rawHospitalInfo?.name || 'NEW GASTRO PLUS HOSPITAL';
+
+    const iframeId = 'police-intimation-iframe-temp';
+    let iframe = document.getElementById(iframeId) as HTMLIFrameElement;
+    if (iframe) document.body.removeChild(iframe);
+    
+    iframe = document.createElement('iframe') as HTMLIFrameElement;
+    iframe.id = iframeId;
+    iframe.style.position = 'fixed';
+    iframe.style.width = '0px';
+    iframe.style.height = '0px';
+    iframe.style.border = 'none';
+    iframe.style.opacity = '0';
+    document.body.appendChild(iframe);
+    
+    const iframeDoc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!iframeDoc) return;
+
+    const policeHtml = `
+      <html>
+        <head>
+          <title>Police Intimation Form (MLC / Special Event) - ${pat?.name || 'Patient'}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+            body { font-family: 'Inter', sans-serif; margin: 35px; color: #0f172a; line-height: 1.4; }
+            .header { text-align: center; border-bottom: 2px solid #334155; padding-bottom: 8px; margin-bottom: 15px; }
+            .title { font-size: 14px; font-weight: 800; text-transform: uppercase; color: #0f172a; border: 1px solid #475569; background: #f1f5f9; padding: 6px; margin-bottom: 15px; text-align: center; }
+            .grid { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+            .grid td { border: 1px solid #cbd5e1; padding: 6px 10px; font-size: 11px; }
+            .grid td.lbl { font-weight: 700; background: #f8fafc; color: #334155; width: 25%; }
+            .sig-grid { margin-top: 50px; display: flex; justify-content: space-between; font-size: 11px; }
+            .sig-box { width: 45%; text-align: center; border-top: 1px solid #94a3b8; padding-top: 6px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0; color:#0f172a; font-size: 18px;">${hospitalName}</h2>
+            <p style="margin:2px; font-size:10px; color:#64748b;">Emergency & Medico-Legal Cell Intimation Notice</p>
+          </div>
+          <div class="title">OFFICIAL POLICE INTIMATION FORM (MLC / UNNATURAL EVENT / LAMA / DEATH)</div>
+          
+          <div style="font-size:11px; margin-bottom:12px;">
+            <strong>To,</strong><br/>
+            The Station House Officer (SHO)<br/>
+            Local Police Station jurisdiction<br/>
+            Date: ${new Date().toLocaleDateString('en-IN')}
+          </div>
+
+          <table class="grid">
+            <tr>
+              <td class="lbl">Patient Name</td><td><strong>${pat?.name || 'Unknown'}</strong></td>
+              <td class="lbl">MLC No.</td><td>${summary.mlcStatus || 'MLC-2026/8892'}</td>
+            </tr>
+            <tr>
+              <td class="lbl">MRN / IPD No.</td><td>${pat?.mrn || 'N/A'}</td>
+              <td class="lbl">Age / Gender</td><td>${pat?.age || 'N/A'} Yrs / ${pat?.gender || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td class="lbl">Event Category</td><td style="font-weight:800; color:#b91c1c;">${summary.dischargeType}</td>
+              <td class="lbl">Date & Time</td><td>${new Date(summary.dischargeDate).toLocaleString('en-IN')}</td>
+            </tr>
+            <tr>
+              <td class="lbl">Attending Doctor</td><td>${summary.dischargeBy || 'Emergency MO'}</td>
+              <td class="lbl">Contact Phone</td><td>${pat?.phone || 'N/A'}</td>
+            </tr>
+          </table>
+
+          <div style="font-size:11px; margin-bottom:15px; padding:10px; border:1px solid #cbd5e1; background:#f8fafc; border-radius:4px;">
+            <strong>Clinical Brief / Incident Details:</strong><br/>
+            ${summary.clinicalSummary || 'Patient was brought/admitted under emergency medico-legal status.'}
+            <br/><br/>
+            <em>This official intimation is hereby transmitted to your police office for necessary record, inquest, or legal procedures as per statutory requirements.</em>
+          </div>
+
+          <div class="sig-grid">
+            <div class="sig-box">
+              <br/>Medical Officer Incharge (MLC Cell)
+              <br/><span style="font-size:9px; color:#64748b;">(Sign, Date & Hospital Seal)</span>
+            </div>
+            <div class="sig-box">
+              <br/>Police Receiving Officer / Constable
+              <br/><span style="font-size:9px; color:#64748b;">(Buckle No., Sign & Time Received)</span>
+            </div>
+          </div>
+          <script>window.onload = () => { window.print(); };</script>
+        </body>
+      </html>
+    `;
+    iframeDoc.write(policeHtml);
+    iframeDoc.close();
+    setTimeout(() => {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        setTimeout(() => { if (document.getElementById(iframeId)) document.body.removeChild(iframe); }, 3000);
+      }
+    }, 500);
+  };
+
   const logAudit = (action: string, entityId: string, details: any) => {
     const logs = storage.get(STORAGE_KEYS.AUDIT_LOGS, []);
     const newLog = {
@@ -2722,6 +3204,19 @@ export default function IPD() {
           }`}
         >
           Intra-Hospital Shifting
+        </Button>
+        <Button 
+          variant="ghost"
+          size="sm" 
+          onClick={() => setActiveTab('lama-death')}
+          className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
+            activeTab === 'lama-death' 
+              ? 'bg-rose-600 text-white shadow-md hover:bg-rose-700' 
+              : 'text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200'
+          }`}
+        >
+          <AlertTriangle className="w-3.5 h-3.5 fill-rose-200 text-rose-600" />
+          LAMA & Death Register
         </Button>
       </div>
 
@@ -5154,6 +5649,308 @@ export default function IPD() {
           </div>
         </div>
       )}
+
+      {/* LAMA & Death Register Processing Tab */}
+      {activeTab === 'lama-death' && (
+        <div className="space-y-4 animate-in fade-in duration-300">
+          {/* Header & Overview Stats Bar */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <Card className="border shadow-xs bg-rose-50/50 border-rose-200">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600 font-bold">
+                  <AlertTriangle className="w-5 h-5 fill-rose-100" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-rose-700">LAMA Register</p>
+                  <p className="text-xl font-black text-rose-950">
+                    {dischargeSummaries.filter(s => (s.dischargeType || '').toLowerCase().includes('lama')).length} Cases
+                  </p>
+                  <p className="text-[10px] text-rose-600 font-medium">Refusal / Legal Liability Releases</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border shadow-xs bg-slate-900 text-white border-slate-800">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-300 font-bold">
+                  <FileSpreadsheet className="w-5 h-5 text-slate-300" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Deceased Register</p>
+                  <p className="text-xl font-black text-white">
+                    {dischargeSummaries.filter(s => (s.dischargeType || '').toLowerCase().includes('decease') || (s.dischargeType || '').toLowerCase().includes('expire') || (s.dischargeType || '').toLowerCase().includes('death')).length} Cases
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-medium">MCCD Form 4 & Mortuary Slips</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border shadow-xs bg-amber-50/50 border-amber-200">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600 font-bold">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-amber-800">Police Intimations</p>
+                  <p className="text-xl font-black text-amber-950">
+                    {dischargeSummaries.filter(s => s.mlcStatus && s.mlcStatus !== 'Non-MLC').length} MLCS
+                  </p>
+                  <p className="text-[10px] text-amber-700 font-medium">Medico-Legal Statutory Records</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border shadow-xs bg-teal-50/50 border-teal-200">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center text-teal-600 font-bold">
+                  <Printer className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-teal-800">Certificates Issued</p>
+                  <p className="text-xl font-black text-teal-950">
+                    {dischargeSummaries.filter(s => s.deathCertNo || s.lamaReason).length} Official
+                  </p>
+                  <p className="text-[10px] text-teal-700 font-medium">Signed & Cleared Summaries</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Special Cases Processing Register Table & Action Cards */}
+          <Card className="border shadow-xs bg-white rounded-xl overflow-hidden">
+            <CardHeader className="p-4 bg-slate-50 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <CardTitle className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 fill-rose-100" />
+                  LAMA & Deceased Clinical Processing Register
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500">
+                  Comprehensive audit trail and document processing for Left Against Advice (LAMA) and Deceased patients.
+                </CardDescription>
+              </div>
+
+              {/* Search Bar */}
+              <div className="flex items-center gap-2">
+                <div className="relative w-48 sm:w-64">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+                  <Input 
+                    placeholder="Search name, MRN, doctor..." 
+                    className="pl-8 h-8 text-xs bg-white border-slate-200"
+                    value={dischargeSearchTerm}
+                    onChange={(e) => setDischargeSearchTerm(e.target.value)}
+                  />
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-slate-50/80 text-[11px] font-bold text-slate-600">
+                    <TableRow>
+                      <TableHead className="py-2.5">Category & Status</TableHead>
+                      <TableHead className="py-2.5">Patient Details</TableHead>
+                      <TableHead className="py-2.5">Discharging Doctor & Date</TableHead>
+                      <TableHead className="py-2.5">Clinical Cause / Stated Reason</TableHead>
+                      <TableHead className="py-2.5 text-center">Clearance Status</TableHead>
+                      <TableHead className="py-2.5 text-right">Further Actions & Official Forms</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y text-xs">
+                    {(() => {
+                      const lamaAndDeathList = dischargeSummaries.filter(s => {
+                        const type = (s.dischargeType || '').toLowerCase();
+                        const isLamaOrDeath = type.includes('lama') || type.includes('decease') || type.includes('expire') || type.includes('death');
+                        if (!isLamaOrDeath) return false;
+
+                        if (!dischargeSearchTerm.trim()) return true;
+                        const pat = patients.find(p => p.id === (s.patient_id || s.patientId)) || MOCK_PATIENTS.find(p => p.id === (s.patient_id || s.patientId)) || {};
+                        const searchLower = dischargeSearchTerm.toLowerCase();
+                        return (
+                          (pat.name || s.patientName || '').toLowerCase().includes(searchLower) ||
+                          (pat.mrn || s.mrn || '').toLowerCase().includes(searchLower) ||
+                          (s.dischargeBy || '').toLowerCase().includes(searchLower) ||
+                          (s.clinicalSummary || '').toLowerCase().includes(searchLower)
+                        );
+                      });
+
+                      if (lamaAndDeathList.length === 0) {
+                        return (
+                          <TableRow>
+                            <TableCell colSpan={6} className="py-12 text-center text-slate-400">
+                              <div className="flex flex-col items-center gap-2">
+                                <AlertTriangle className="w-8 h-8 text-slate-300" />
+                                <p className="font-semibold text-sm">No LAMA or Deceased patient cases found.</p>
+                                <p className="text-xs text-slate-400">All routine discharges remain under the main Discharge Summary tab.</p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }
+
+                      return lamaAndDeathList.map((summary) => {
+                        const pat = patients.find(p => p.id === (summary.patient_id || summary.patientId)) || MOCK_PATIENTS.find(p => p.id === (summary.patient_id || summary.patientId)) || {
+                          name: summary.patientName || 'Unknown Patient',
+                          mrn: summary.mrn || 'N/A',
+                          age: 'N/A',
+                          gender: 'N/A',
+                          phone: summary.relativeContact || 'N/A'
+                        };
+
+                        const isLama = (summary.dischargeType || '').toLowerCase().includes('lama');
+                        const isDeath = (summary.dischargeType || '').toLowerCase().includes('decease') || (summary.dischargeType || '').toLowerCase().includes('expire') || (summary.dischargeType || '').toLowerCase().includes('death');
+
+                        const chk = patientChecklists[pat.id || ''] || { accountsCleared: true, doctorCleared: true };
+
+                        return (
+                          <TableRow key={summary.id} className="hover:bg-slate-50/80 transition-colors">
+                            {/* Category Badge */}
+                            <TableCell className="py-3 font-medium">
+                              {isLama && (
+                                <div className="space-y-1">
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black bg-rose-100 text-rose-800 border border-rose-300 shadow-2xs">
+                                    <AlertTriangle className="w-3 h-3 fill-rose-300" /> LAMA
+                                  </span>
+                                  <p className="text-[10px] text-rose-600 font-semibold">Left Against Advice</p>
+                                </div>
+                              )}
+                              {isDeath && (
+                                <div className="space-y-1">
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black bg-slate-900 text-slate-100 border border-slate-700 shadow-2xs">
+                                    🖤 DECEASED
+                                  </span>
+                                  <p className="text-[10px] text-slate-500 font-semibold">Expired Patient</p>
+                                </div>
+                              )}
+                            </TableCell>
+
+                            {/* Patient Info */}
+                            <TableCell className="py-3">
+                              <div>
+                                <p className="font-bold text-slate-900 text-xs">{pat.name}</p>
+                                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-mono mt-0.5">
+                                  <span>{pat.mrn}</span>
+                                  <span>•</span>
+                                  <span>{pat.age}Y / {pat.gender}</span>
+                                </div>
+                              </div>
+                            </TableCell>
+
+                            {/* Doctor & Date */}
+                            <TableCell className="py-3">
+                              <div>
+                                <p className="font-bold text-slate-800 text-xs">{summary.dischargeBy || 'Duty Consultant'}</p>
+                                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                                  {new Date(summary.dischargeDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                  {summary.timeOfDeath && ` @ ${summary.timeOfDeath}`}
+                                </p>
+                              </div>
+                            </TableCell>
+
+                            {/* Cause / Summary */}
+                            <TableCell className="py-3">
+                              <div className="max-w-[260px] space-y-1">
+                                <p className="text-xs font-semibold text-slate-700 line-clamp-2" title={summary.clinicalSummary}>
+                                  {summary.causeOfDeathDirect || summary.clinicalSummary || 'No remarks recorded.'}
+                                </p>
+                                {isLama && summary.lamaReason && (
+                                  <p className="text-[10px] text-rose-700 font-medium italic">
+                                    Reason: {summary.lamaReason}
+                                  </p>
+                                )}
+                              </div>
+                            </TableCell>
+
+                            {/* Clearance Status */}
+                            <TableCell className="py-3 text-center">
+                              <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-black ${
+                                chk.accountsCleared ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'
+                              }`}>
+                                {chk.accountsCleared ? '✓ ZEROED DUES' : '⚠️ DUES SETTLEMENT'}
+                              </span>
+                            </TableCell>
+
+                            {/* Action Buttons */}
+                            <TableCell className="py-3 text-right">
+                              <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                {isLama && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => printLamaWaiver(summary)}
+                                      className="h-7 text-[10px] font-black bg-rose-600 hover:bg-rose-700 text-white gap-1 px-2.5 shadow-2xs"
+                                    >
+                                      <FileText className="w-3 h-3" />
+                                      LAMA WAIVER 📜
+                                    </Button>
+
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => printPoliceIntimation(summary)}
+                                      className="h-7 text-[10px] font-bold border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 gap-1 px-2"
+                                    >
+                                      POLICE MLC 🚨
+                                    </Button>
+                                  </>
+                                )}
+
+                                {isDeath && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => printDeathCertificate(summary)}
+                                      className="h-7 text-[10px] font-black bg-slate-900 hover:bg-slate-800 text-white gap-1 px-2.5 shadow-2xs"
+                                    >
+                                      <Printer className="w-3 h-3 text-sky-400" />
+                                      DEATH CERT 📜
+                                    </Button>
+
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => printBodyHandoverSlip(summary)}
+                                      className="h-7 text-[10px] font-bold border-slate-300 bg-slate-50 text-slate-800 hover:bg-slate-100 gap-1 px-2"
+                                    >
+                                      BODY HANDOVER 🏷️
+                                    </Button>
+
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => printPoliceIntimation(summary)}
+                                      className="h-7 text-[10px] font-bold border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 gap-1 px-2"
+                                    >
+                                      MLC SLIP 🚨
+                                    </Button>
+                                  </>
+                                )}
+
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setDischargedSummaryToShow(summary);
+                                    setIsSummaryDetailsOpen(true);
+                                  }}
+                                  className="h-7 text-[10px] font-bold text-teal-700 hover:bg-teal-50 px-2"
+                                >
+                                  SUMMARY 📄
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      });
+                    })()}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Patient Chart Dialog */}
       <Dialog open={isChartOpen} onOpenChange={setIsChartOpen}>
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
